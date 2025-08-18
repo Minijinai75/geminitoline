@@ -154,7 +154,7 @@
 
     <!-- 版本號 -->
     <footer class="w-full text-center mt-8">
-        <p class="text-gray-400 text-xs">v5.6 (排版修正版)</p>
+        <p class="text-gray-400 text-xs">v6.1 (一致性排版修正)</p>
     </footer>
 
 
@@ -345,12 +345,13 @@
             const avatar = document.createElement('img');
             avatar.className = `w-10 h-10 rounded-full object-cover avatar-${speaker}`;
             const messageContent = document.createElement('div');
-            messageContent.className = 'flex flex-col';
+            
             const bubble = document.createElement('div');
             bubble.className = 'chat-bubble p-3 rounded-2xl';
             bubble.innerHTML = message.replace(/\n/g, '<br>');
 
             if (speaker === 'gemini') {
+                messageContent.className = 'flex flex-col'; 
                 messageRow.className = 'flex items-start gap-2 message-enter justify-start';
                 avatar.src = geminiAvatarSrc;
                 const nameDiv = document.createElement('div');
@@ -362,9 +363,16 @@
                 messageRow.appendChild(avatar);
                 messageRow.appendChild(messageContent);
             } else { // user
-                // *** FIX: Changed to items-end for correct bottom alignment for user ***
-                messageRow.className = 'flex items-end gap-2 message-enter justify-end';
+                messageContent.className = 'flex flex-col items-end'; 
+                messageRow.className = 'flex items-start gap-2 message-enter justify-end';
                 avatar.src = userAvatarSrc;
+                
+                // *** 修正：為角色2也加上名稱標籤 ***
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'text-xs text-white mb-1 text-right';
+                nameDiv.textContent = speakerName;
+                messageContent.appendChild(nameDiv);
+
                 bubble.classList.add('bg-green-400', 'text-black');
                 messageContent.appendChild(bubble);
                 messageRow.appendChild(messageContent);
@@ -421,12 +429,12 @@
                                 const avatar = document.createElement('img');
                                 avatar.className = 'w-10 h-10 rounded-full object-cover';
                                 const messageContent = document.createElement('div');
-                                messageContent.className = 'flex flex-col';
                                 const bubble = document.createElement('div');
                                 bubble.className = 'chat-bubble p-3 rounded-2xl';
                                 bubble.innerHTML = msg.content.replace(/\\n/g, '<br>');
+
                                 if (msg.speaker === 'gemini') {
-                                    // *** FIX: Changed to items-start for consistent top alignment ***
+                                    messageContent.className = 'flex flex-col';
                                     messageRow.className = 'flex items-start gap-2 justify-start';
                                     avatar.src = data.geminiAvatar;
                                     const nameDiv = document.createElement('div');
@@ -438,9 +446,16 @@
                                     messageRow.appendChild(avatar);
                                     messageRow.appendChild(messageContent);
                                 } else {
-                                    // *** FIX: Changed to items-end for correct bottom alignment for user ***
-                                    messageRow.className = 'flex items-end gap-2 justify-end';
+                                    messageContent.className = 'flex flex-col items-end';
+                                    messageRow.className = 'flex items-start gap-2 justify-end';
                                     avatar.src = data.userAvatar;
+                                    
+                                    // *** 修正：為角色2也加上名稱標籤 ***
+                                    const nameDiv = document.createElement('div');
+                                    nameDiv.className = 'text-xs text-white mb-1 text-right';
+                                    nameDiv.textContent = data.userName;
+                                    messageContent.appendChild(nameDiv);
+
                                     bubble.classList.add('bg-green-400', 'text-black');
                                     messageContent.appendChild(bubble);
                                     messageRow.appendChild(messageContent);
@@ -459,4 +474,3 @@
     </script>
 </body>
 </html>
-
