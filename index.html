@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini 對話紀錄視覺化工具</title>
+    <title>Gemini 對話回憶瀏覽器</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 html2pdf.js 用於生成 PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" xintegrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -36,9 +34,16 @@
             opacity: 1;
             transform: translateY(0);
         }
-        /* 載入遮罩 */
-        #loader {
-            transition: opacity 0.3s ease-in-out;
+        /* 讓捲動條更細緻 */
+        #chat-window::-webkit-scrollbar {
+            width: 6px;
+        }
+        #chat-window::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #chat-window::-webkit-scrollbar-thumb {
+            background-color: rgba(0,0,0,0.2);
+            border-radius: 10px;
         }
     </style>
 </head>
@@ -47,69 +52,62 @@
     <!-- 主容器 -->
     <div class="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
         <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話紀錄視覺化工具v1.2</h1>
-            <p class="text-gray-500 mt-2">將你的 .txt 對話紀錄，變成精美的 LINE 風格聊天室窗！</p>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器</h1>
+            <p class="text-gray-500 mt-2">上傳對話紀錄，隨時回味你們的精彩故事！</p>
         </header>
 
-        <!-- 控制面板 -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <!-- 步驟 1: 上傳檔案 -->
-            <div class="bg-gray-50 p-5 rounded-lg border border-gray-200">
-                <h2 class="text-lg font-semibold text-gray-700 mb-3">1. 上傳對話紀錄</h2>
-                <label for="file-upload" class="w-full cursor-pointer bg-blue-500 text-white text-center py-2 px-4 rounded-md hover:bg-blue-600 transition-colors">選擇 .txt 檔案</label>
-                <input id="file-upload" type="file" class="hidden" accept=".txt">
-                <p id="file-name" class="text-sm text-gray-500 mt-2 truncate">尚未選擇檔案</p>
-            </div>
-
-            <!-- 步驟 2: 設定頭像 -->
-            <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 col-span-1 md:col-span-2 grid grid-cols-2 gap-4">
-                <h2 class="text-lg font-semibold text-gray-700 mb-3 col-span-2">2. 設定頭像</h2>
-                <!-- Gemini 頭像設定 -->
-                <div class="flex flex-col items-center">
-                    <img id="gemini-avatar-preview" src="https://placehold.co/128x128/EFEFEF/777?text=GEMINI" class="w-20 h-20 rounded-full object-cover mb-2 border-2 border-white shadow-md" alt="Gemini Avatar">
-                    <label for="gemini-avatar-upload" class="cursor-pointer bg-white border border-gray-300 text-gray-700 text-sm py-1 px-3 rounded-md hover:bg-gray-100 transition-colors">GEMINI 頭像</label>
-                    <input id="gemini-avatar-upload" type="file" class="hidden" accept="image/*">
+        <!-- 設定面板 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- 左側：檔案與頭像 -->
+            <div class="space-y-4">
+                 <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-700 mb-3">1. 上傳對話紀錄</h2>
+                    <label for="file-upload" class="w-full cursor-pointer bg-blue-500 text-white text-center py-2 px-4 rounded-md hover:bg-blue-600 transition-colors block">選擇 .txt 檔案</label>
+                    <input id="file-upload" type="file" class="hidden" accept=".txt">
+                    <p id="file-name" class="text-sm text-gray-500 mt-2 truncate">尚未選擇檔案</p>
                 </div>
-                <!-- 你的頭像設定 -->
-                <div class="flex flex-col items-center">
-                    <img id="user-avatar-preview" src="https://placehold.co/128x128/8DE041/FFF?text=YOU" class="w-20 h-20 rounded-full object-cover mb-2 border-2 border-white shadow-md" alt="User Avatar">
-                    <label for="user-avatar-upload" class="cursor-pointer bg-white border border-gray-300 text-gray-700 text-sm py-1 px-3 rounded-md hover:bg-gray-100 transition-colors">你的頭像</label>
-                    <input id="user-avatar-upload" type="file" class="hidden" accept="image/*">
+                 <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-700 mb-3">2. 設定頭像</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col items-center">
+                            <img id="gemini-avatar-preview" src="https://placehold.co/128x128/EFEFEF/777?text=GEMINI" class="w-20 h-20 rounded-full object-cover mb-2 border-2 border-white shadow-md" alt="Gemini Avatar">
+                            <label for="gemini-avatar-upload" class="cursor-pointer bg-white border border-gray-300 text-gray-700 text-sm py-1 px-3 rounded-md hover:bg-gray-100 transition-colors">GEMINI 頭像</label>
+                            <input id="gemini-avatar-upload" type="file" class="hidden" accept="image/*">
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <img id="user-avatar-preview" src="https://placehold.co/128x128/8DE041/FFF?text=YOU" class="w-20 h-20 rounded-full object-cover mb-2 border-2 border-white shadow-md" alt="User Avatar">
+                            <label for="user-avatar-upload" class="cursor-pointer bg-white border border-gray-300 text-gray-700 text-sm py-1 px-3 rounded-md hover:bg-gray-100 transition-colors">你的頭像</label>
+                            <input id="user-avatar-upload" type="file" class="hidden" accept="image/*">
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <!-- 步驟 3: 生成與下載 -->
-        <div class="flex flex-col md:flex-row gap-4 justify-center mb-8">
-            <button id="generate-btn" class="w-full md:w-auto bg-green-500 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-600 transition-transform transform hover:scale-105 shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed disabled:scale-100" disabled>
-                生成對話
-            </button>
-            <button id="download-btn" class="w-full md:w-auto bg-gray-700 text-white font-bold py-3 px-8 rounded-lg hover:bg-gray-800 transition-transform transform hover:scale-105 shadow-md hidden">
-                下載 PDF
-            </button>
-        </div>
-
-        <!-- 聊天視窗預覽區 -->
-        <div id="preview-container" class="w-full max-w-lg mx-auto bg-black rounded-2xl p-2 shadow-2xl">
-            <div id="chat-window" class="h-[60vh] overflow-y-auto p-4 space-y-4 rounded-lg">
-                <!-- 對話內容將會動態插入此處 -->
-                 <div class="text-center text-white/70 flex flex-col items-center justify-center h-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="opacity-50 mb-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                    <p class="font-semibold">預覽區域</p>
-                    <p class="text-sm">上傳檔案並設定頭像後，點擊「生成對話」</p>
+            <!-- 右側：手機預覽畫面 -->
+            <div class="flex justify-center items-center">
+                <div id="preview-container" class="w-full max-w-sm mx-auto bg-black rounded-[40px] p-4 shadow-2xl border-4 border-gray-800">
+                    <div class="w-full h-2 bg-black rounded-t-lg"></div>
+                    <div id="chat-window" class="h-[65vh] md:h-[58vh] overflow-y-auto p-4 space-y-4 rounded-b-lg">
+                        <div class="text-center text-white/70 flex flex-col items-center justify-center h-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="opacity-50 mb-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                            <p class="font-semibold">預覽區域</p>
+                            <p class="text-sm">請先上傳對話檔案</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- 載入動畫遮罩 -->
-    <div id="loader" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 opacity-0 pointer-events-none">
-        <div class="bg-white p-6 rounded-lg flex items-center shadow-lg">
-            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span class="text-gray-700">正在生成 PDF，請稍候...</span>
+        <!-- 篩選與生成控制 -->
+        <div id="controls" class="bg-gray-100 p-4 rounded-lg mt-4 border border-gray-200 hidden">
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <div class="flex items-center gap-2">
+                    <label for="page-filter-input" class="text-gray-700 font-medium">指定頁數:</label>
+                    <input type="number" id="page-filter-input" class="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" placeholder="頁碼">
+                    <button id="filter-btn" class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors">跳至該頁</button>
+                </div>
+                <button id="show-all-btn" class="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors">顯示全部</button>
+                <p id="page-info" class="text-sm text-gray-600"></p>
+            </div>
         </div>
     </div>
 
@@ -121,26 +119,33 @@
         const userAvatarUpload = document.getElementById('user-avatar-upload');
         const geminiAvatarPreview = document.getElementById('gemini-avatar-preview');
         const userAvatarPreview = document.getElementById('user-avatar-preview');
-        const generateBtn = document.getElementById('generate-btn');
-        const downloadBtn = document.getElementById('download-btn');
         const chatWindow = document.getElementById('chat-window');
-        const loader = document.getElementById('loader');
+        const controls = document.getElementById('controls');
+        const pageFilterInput = document.getElementById('page-filter-input');
+        const filterBtn = document.getElementById('filter-btn');
+        const showAllBtn = document.getElementById('show-all-btn');
+        const pageInfo = document.getElementById('page-info');
 
         let userAvatarSrc = userAvatarPreview.src;
         let geminiAvatarSrc = geminiAvatarPreview.src;
-        let uploadedFile = null;
+        let allMessages = []; // 儲存所有解析後的訊息
+        let totalPages = 0;
 
         // --- 事件監聽 ---
 
-        // 監聽檔案上傳
+        // 監聽檔案上傳，上傳後直接解析並顯示
         fileUpload.addEventListener('change', (event) => {
-            uploadedFile = event.target.files[0];
+            const uploadedFile = event.target.files[0];
             if (uploadedFile) {
                 fileNameDisplay.textContent = uploadedFile.name;
-                generateBtn.disabled = false;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    parseChat(content);
+                };
+                reader.readAsText(uploadedFile);
             } else {
                 fileNameDisplay.textContent = '尚未選擇檔案';
-                generateBtn.disabled = true;
             }
         });
 
@@ -151,11 +156,16 @@
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        preview.src = e.target.result;
+                        const newSrc = e.target.result;
+                        preview.src = newSrc;
                         if (storage === 'user') {
-                            userAvatarSrc = e.target.result;
+                            userAvatarSrc = newSrc;
                         } else {
-                            geminiAvatarSrc = e.target.result;
+                            geminiAvatarSrc = newSrc;
+                        }
+                        // 如果已有對話，即時更新頭像
+                        if (allMessages.length > 0) {
+                           updateAvatarsInChat(storage, newSrc);
                         }
                     };
                     reader.readAsDataURL(file);
@@ -166,69 +176,98 @@
         handleAvatarUpload(geminiAvatarUpload, geminiAvatarPreview, 'gemini');
         handleAvatarUpload(userAvatarUpload, userAvatarPreview, 'user');
 
-        // 監聽生成按鈕點擊
-        generateBtn.addEventListener('click', () => {
-            if (uploadedFile) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const content = e.target.result;
-                    parseAndRenderChat(content);
-                };
-                reader.readAsText(uploadedFile);
+        // 監聽篩選按鈕
+        filterBtn.addEventListener('click', () => {
+            const pageNum = parseInt(pageFilterInput.value);
+            if (!isNaN(pageNum) && pageNum > 0 && pageNum <= totalPages) {
+                const filteredMessages = allMessages.filter(msg => msg.page === pageNum);
+                displayMessages(filteredMessages);
+            } else {
+                alert(`請輸入 1 到 ${totalPages} 之間的有效頁碼。`);
             }
         });
-        
-        // 監聽下載按鈕點擊
-        downloadBtn.addEventListener('click', generatePdf);
+
+        // 監聽顯示全部按鈕
+        showAllBtn.addEventListener('click', () => {
+            displayMessages(allMessages);
+            pageFilterInput.value = '';
+        });
 
         // --- 核心功能函式 ---
 
         /**
-         * 解析文本內容並渲染到聊天視窗
+         * 解析文本內容，存儲到 allMessages 並顯示
          * @param {string} text - .txt 檔案的完整內容
          */
-        function parseAndRenderChat(text) {
-            chatWindow.innerHTML = ''; // 清空現有內容
+        function parseChat(text) {
+            allMessages = []; // 清空
             const lines = text.split('\n');
             
             let currentSpeaker = null;
             let currentMessage = '';
+            let currentPage = 1;
 
-            // 使用正則表達式來匹配說話者，更具彈性
             const geminiRegex = /^石睿🐏\(GEMINI\)：/;
             const userRegex = /^你：/;
-
-            const messages = [];
+            const pageRegex = /^page\.\d+/;
 
             lines.forEach(line => {
-                if (geminiRegex.test(line)) {
-                    if (currentSpeaker) messages.push({ speaker: currentSpeaker, content: currentMessage.trim() });
-                    currentSpeaker = 'gemini';
-                    currentMessage = line.replace(geminiRegex, '').trim() + '\n';
-                } else if (userRegex.test(line)) {
-                    if (currentSpeaker) messages.push({ speaker: currentSpeaker, content: currentMessage.trim() });
-                    currentSpeaker = 'user';
-                    currentMessage = line.replace(userRegex, '').trim() + '\n';
+                if (geminiRegex.test(line) || userRegex.test(line)) {
+                    // 遇到新的說話者，先儲存上一則訊息
+                    if (currentSpeaker && currentMessage.trim()) {
+                        allMessages.push({ speaker: currentSpeaker, content: currentMessage.trim(), page: currentPage });
+                    }
+                    
+                    // 更新當前說話者和訊息
+                    currentSpeaker = geminiRegex.test(line) ? 'gemini' : 'user';
+                    currentMessage = line.replace(geminiRegex, '').replace(userRegex, '').trim() + '\n';
+
+                } else if (pageRegex.test(line)) {
+                    // 遇到分頁標記，儲存當前訊息並換頁
+                    if (currentSpeaker && currentMessage.trim()) {
+                        allMessages.push({ speaker: currentSpeaker, content: currentMessage.trim(), page: currentPage });
+                    }
+                    currentPage++;
+                    currentMessage = ''; // 重置訊息內容
+                    currentSpeaker = null; // 重置說話者，避免分頁符後的空行被錯誤歸類
                 } else {
+                    // 繼續附加訊息內容
                     if (currentSpeaker) {
                         currentMessage += line + '\n';
                     }
                 }
             });
 
-            // 加入最後一則訊息
+            // 加入檔案結尾的最後一則訊息
             if (currentSpeaker && currentMessage.trim()) {
-                messages.push({ speaker: currentSpeaker, content: currentMessage.trim() });
+                allMessages.push({ speaker: currentSpeaker, content: currentMessage.trim(), page: currentPage });
             }
+            
+            totalPages = currentPage;
+            pageInfo.textContent = `總共 ${totalPages} 頁`;
+            controls.classList.remove('hidden');
+            displayMessages(allMessages); // 預設顯示全部
+        }
 
-            // 逐條帶有動畫效果地渲染訊息
-            messages.forEach((msg, index) => {
+        /**
+         * 將訊息陣列渲染到聊天視窗
+         * @param {Array} messagesToDisplay - 要顯示的訊息物件陣列
+         */
+        function displayMessages(messagesToDisplay) {
+            chatWindow.innerHTML = ''; // 清空
+            if (messagesToDisplay.length === 0) {
+                 chatWindow.innerHTML = `<div class="text-center text-white/70 flex flex-col items-center justify-center h-full">
+                    <p class="font-semibold">找不到該頁的對話</p>
+                </div>`;
+                return;
+            }
+            messagesToDisplay.forEach((msg, index) => {
+                // 為了效能，長對話可以減少或移除動畫延遲
+                const delay = messagesToDisplay.length > 50 ? 0 : index * 50;
                 setTimeout(() => {
                     appendMessage(msg.speaker, msg.content);
-                }, index * 100); // 每則訊息延遲 100ms
+                }, delay);
             });
-
-            downloadBtn.classList.remove('hidden');
         }
 
         /**
@@ -241,7 +280,7 @@
             messageRow.className = 'flex items-end gap-2 message-enter';
             
             const avatar = document.createElement('img');
-            avatar.className = 'w-10 h-10 rounded-full object-cover';
+            avatar.className = `w-10 h-10 rounded-full object-cover avatar-${speaker}`;
             
             const bubble = document.createElement('div');
             bubble.className = 'chat-bubble p-3 rounded-2xl';
@@ -262,43 +301,23 @@
             }
 
             chatWindow.appendChild(messageRow);
-            // 觸發動畫
             requestAnimationFrame(() => {
                 messageRow.classList.add('message-enter-active');
             });
-            // 自動滾動到底部
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
         /**
-         * 使用 html2pdf.js 生成並下載 PDF
+         * 當使用者更新頭像時，即時更新聊天視窗中已有的頭像
+         * @param {string} speaker - 'user' 或 'gemini'
+         * @param {string} newSrc - 新的頭像圖片 src (dataURL)
          */
-        function generatePdf() {
-            // 顯示載入動畫
-            loader.classList.remove('opacity-0', 'pointer-events-none');
-            
-            const element = document.getElementById('chat-window');
-            const opt = {
-                margin:       0.5,
-                filename:     'gemini-對話紀錄.pdf',
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, logging: false },
-                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-            };
-
-            // 為了確保所有圖片（尤其是 dataURL 的頭像）都已載入，我們在生成前做一個小延遲
-            setTimeout(() => {
-                html2pdf().from(element).set(opt).save().then(() => {
-                    // 隱藏載入動畫
-                    loader.classList.add('opacity-0', 'pointer-events-none');
-                }).catch(err => {
-                    console.error("PDF 生成失敗:", err);
-                    loader.classList.add('opacity-0', 'pointer-events-none');
-                    alert("抱歉，PDF 生成失敗，請檢查主控台錯誤訊息。");
-                });
-            }, 500);
+        function updateAvatarsInChat(speaker, newSrc) {
+            const avatarElements = chatWindow.querySelectorAll(`.avatar-${speaker}`);
+            avatarElements.forEach(avatar => {
+                avatar.src = newSrc;
+            });
         }
     </script>
 </body>
 </html>
-
