@@ -87,7 +87,7 @@
             <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
                 <h2 class="text-lg font-semibold text-gray-700 mb-3">2. 設定角色</h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <!-- Gemini 角色 -->
+                    <!-- 角色 1 -->
                     <div class="flex items-center gap-4">
                         <img id="gemini-avatar-preview" src="https://placehold.co/128x128/EFEFEF/777?text=GEMINI" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" alt="Gemini Avatar">
                         <div class="w-full">
@@ -97,7 +97,7 @@
                             <input id="gemini-avatar-upload" type="file" class="hidden" accept="image/*">
                         </div>
                     </div>
-                    <!-- 你的角色 -->
+                    <!-- 角色 2 -->
                     <div class="flex items-center gap-4">
                         <img id="user-avatar-preview" src="https://placehold.co/128x128/8DE041/FFF?text=YOU" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" alt="User Avatar">
                         <div class="w-full">
@@ -127,8 +127,11 @@
     </div>
     
     <!-- 手機預覽畫面 (初始在設定下方) -->
-    <div id="preview-container" class="w-full max-w-md mx-auto bg-black rounded-[40px] p-4 shadow-2xl border-4 border-gray-800 transition-all duration-300">
-        <button id="close-fullscreen-btn" class="hidden fixed top-4 right-4 z-50 bg-white/80 rounded-full p-2 shadow-lg backdrop-blur-sm">
+    <div id="preview-container" class="w-full max-w-md mx-auto bg-black rounded-[40px] p-4 shadow-2xl border-4 border-gray-800 transition-all duration-300 relative">
+        <button id="expand-fullscreen-btn" class="absolute top-4 right-4 z-10 bg-white/80 rounded-full p-2 shadow-lg backdrop-blur-sm hover:bg-gray-200 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        </button>
+        <button id="close-fullscreen-btn" class="hidden fixed top-4 right-4 z-50 bg-white/80 rounded-full p-2 shadow-lg backdrop-blur-sm hover:bg-gray-200 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
         <div class="w-full h-2 bg-black rounded-t-lg"></div>
@@ -143,7 +146,7 @@
 
     <!-- 版本號 -->
     <footer class="w-full text-center mt-8">
-        <p class="text-gray-400 text-xs">v4.0 (沉浸式預覽版)</p>
+        <p class="text-gray-400 text-xs">v4.1 (功能修正版)</p>
     </footer>
 
 
@@ -166,6 +169,7 @@
         const pageInfo = document.getElementById('page-info');
         const previewContainer = document.getElementById('preview-container');
         const mainContainer = document.getElementById('main-container');
+        const expandFullscreenBtn = document.getElementById('expand-fullscreen-btn');
         const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
 
         let userAvatarSrc = userAvatarPreview.src;
@@ -216,7 +220,6 @@
         handleAvatarUpload(geminiAvatarUpload, geminiAvatarPreview, 'gemini');
         handleAvatarUpload(userAvatarUpload, userAvatarPreview, 'user');
 
-        // 監聽名稱變更，如果已有對話則重新解析
         const handleNameChange = () => {
              if (fileUpload.files[0]) {
                 const reader = new FileReader();
@@ -250,36 +253,30 @@
             endPageInput.value = '';
         });
 
-        // 全螢幕滾動監聽
-        window.addEventListener('scroll', () => {
-            if (allMessages.length === 0) return;
-
-            const previewTop = previewContainer.offsetTop;
-            const scrollY = window.scrollY;
-
-            if (scrollY > previewTop && !isFullscreen) {
+        expandFullscreenBtn.addEventListener('click', () => {
+            if (!isFullscreen) {
                 isFullscreen = true;
                 previewContainer.classList.add('fullscreen-chat');
                 closeFullscreenBtn.classList.remove('hidden');
-                mainContainer.style.display = 'none'; // 隱藏上方設定
+                expandFullscreenBtn.classList.add('hidden');
+                mainContainer.style.display = 'none';
             }
         });
 
-        // 關閉全螢幕按鈕
         closeFullscreenBtn.addEventListener('click', () => {
             if (isFullscreen) {
                 isFullscreen = false;
                 previewContainer.classList.remove('fullscreen-chat');
                 closeFullscreenBtn.classList.add('hidden');
-                mainContainer.style.display = 'block'; // 顯示上方設定
-                window.scrollTo(0, 0); // 回到頂部
+                expandFullscreenBtn.classList.remove('hidden');
+                mainContainer.style.display = 'block';
+                window.scrollTo(0, 0);
             }
         });
 
 
         // --- 核心功能函式 ---
 
-        // 用於轉義正則表達式中的特殊字符
         function escapeRegExp(string) {
             return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
@@ -292,7 +289,6 @@
             let currentMessage = '';
             let currentPage = 1;
 
-            // 從輸入框動態獲取名稱並創建正則表達式
             const geminiName = escapeRegExp(geminiNameInput.value);
             const userName = escapeRegExp(userNameInput.value);
             const geminiRegex = new RegExp(`^${geminiName}：`);
@@ -300,17 +296,21 @@
             const pageRegex = /^page\.\d+/;
 
             lines.forEach(line => {
-                if (geminiRegex.test(line)) {
-                    if (currentSpeaker) allMessages.push({ speaker: 'gemini', content: currentMessage.trim(), page: currentPage });
+                const trimmedLine = line.trim();
+                if (geminiRegex.test(trimmedLine)) {
+                    if (currentSpeaker && currentMessage.trim()) {
+                        allMessages.push({ speaker: currentSpeaker, content: currentMessage.trim(), page: currentPage });
+                    }
                     currentSpeaker = 'gemini';
-                    currentMessage = line.replace(geminiRegex, '').trim() + '\n';
-                } else if (userRegex.test(line)) {
-                    if (currentSpeaker) allMessages.push({ speaker: 'user', content: currentMessage.trim(), page: currentPage });
+                    currentMessage = trimmedLine.replace(geminiRegex, '').trim() + '\n';
+                } else if (userRegex.test(trimmedLine)) {
+                     if (currentSpeaker && currentMessage.trim()) {
+                        allMessages.push({ speaker: currentSpeaker, content: currentMessage.trim(), page: currentPage });
+                    }
                     currentSpeaker = 'user';
-                    currentMessage = line.replace(userRegex, '').trim() + '\n';
-                } else if (pageRegex.test(line)) {
-                    if (currentSpeaker) {
-                        const speakerType = (new RegExp(`^${geminiName}：`)).test(allMessages[allMessages.length-1]?.content) ? 'gemini' : 'user';
+                    currentMessage = trimmedLine.replace(userRegex, '').trim() + '\n';
+                } else if (pageRegex.test(trimmedLine)) {
+                    if (currentSpeaker && currentMessage.trim()) {
                         allMessages.push({ speaker: currentSpeaker, content: currentMessage.trim(), page: currentPage });
                     }
                     currentPage++;
