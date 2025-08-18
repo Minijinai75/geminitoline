@@ -85,13 +85,13 @@
             </div>
             <!-- 角色設定 -->
             <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <h2 class="text-lg font-semibold text-gray-700 mb-3">2. 設定角色</h2>
+                <h2 class="text-lg font-semibold text-gray-700 mb-3">2. 設定角色 (僅供顯示)</h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <!-- 角色 1 -->
                     <div class="flex items-center gap-4">
                         <img id="gemini-avatar-preview" src="https://placehold.co/128x128/EFEFEF/777?text=GEMINI" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" alt="Gemini Avatar">
                         <div class="w-full">
-                            <label for="gemini-name-input" class="text-sm font-medium text-gray-600">角色 1 名稱</label>
+                            <label for="gemini-name-input" class="text-sm font-medium text-gray-600">角色 1 顯示名稱</label>
                             <input type="text" id="gemini-name-input" class="w-full p-2 border border-gray-300 rounded-md mt-1" value="石睿🐏(GEMINI)">
                             <label for="gemini-avatar-upload" class="mt-2 text-sm cursor-pointer text-blue-600 hover:underline">更換頭像</label>
                             <input id="gemini-avatar-upload" type="file" class="hidden" accept="image/*">
@@ -101,7 +101,7 @@
                     <div class="flex items-center gap-4">
                         <img id="user-avatar-preview" src="https://placehold.co/128x128/8DE041/FFF?text=YOU" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" alt="User Avatar">
                         <div class="w-full">
-                            <label for="user-name-input" class="text-sm font-medium text-gray-600">角色 2 名稱</label>
+                            <label for="user-name-input" class="text-sm font-medium text-gray-600">角色 2 顯示名稱</label>
                             <input type="text" id="user-name-input" class="w-full p-2 border border-gray-300 rounded-md mt-1" value="你">
                             <label for="user-avatar-upload" class="mt-2 text-sm cursor-pointer text-blue-600 hover:underline">更換頭像</label>
                             <input id="user-avatar-upload" type="file" class="hidden" accept="image/*">
@@ -146,7 +146,7 @@
 
     <!-- 版本號 -->
     <footer class="w-full text-center mt-8">
-        <p class="text-gray-400 text-xs">v4.1 (功能修正版)</p>
+        <p class="text-gray-400 text-xs">v4.2 (顯示優化版)</p>
     </footer>
 
 
@@ -220,15 +220,18 @@
         handleAvatarUpload(geminiAvatarUpload, geminiAvatarPreview, 'gemini');
         handleAvatarUpload(userAvatarUpload, userAvatarPreview, 'user');
 
+        // 當顯示名稱改變時，重新渲染對話
         const handleNameChange = () => {
-             if (fileUpload.files[0]) {
-                const reader = new FileReader();
-                reader.onload = (e) => parseChat(e.target.result);
-                reader.readAsText(fileUpload.files[0]);
+             if (allMessages.length > 0) {
+                // 找到當前顯示的是什麼訊息，並重新渲染它們
+                const currentStartPage = parseInt(startPageInput.value) || 1;
+                const currentEndPage = parseInt(endPageInput.value) || (startPageInput.value ? currentStartPage : totalPages);
+                const currentMessages = allMessages.filter(msg => msg.page >= currentStartPage && msg.page <= currentEndPage);
+                displayMessages(currentMessages);
              }
         };
-        geminiNameInput.addEventListener('change', handleNameChange);
-        userNameInput.addEventListener('change', handleNameChange);
+        geminiNameInput.addEventListener('input', handleNameChange);
+        userNameInput.addEventListener('input', handleNameChange);
 
         filterBtn.addEventListener('click', () => {
             const startPage = parseInt(startPageInput.value);
@@ -277,10 +280,6 @@
 
         // --- 核心功能函式 ---
 
-        function escapeRegExp(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
-
         function parseChat(text) {
             allMessages = [];
             const lines = text.split('\n');
@@ -288,11 +287,12 @@
             let currentSpeaker = null;
             let currentMessage = '';
             let currentPage = 1;
-
-            const geminiName = escapeRegExp(geminiNameInput.value);
-            const userName = escapeRegExp(userNameInput.value);
-            const geminiRegex = new RegExp(`^${geminiName}：`);
-            const userRegex = new RegExp(`^${userName}：`);
+            
+            // 固定的解析標籤
+            const geminiParseName = "石睿🐏(GEMINI)";
+            const userParseName = "你";
+            const geminiRegex = new RegExp(`^${escapeRegExp(geminiParseName)}：`);
+            const userRegex = new RegExp(`^${escapeRegExp(userParseName)}：`);
             const pageRegex = /^page\.\d+/;
 
             lines.forEach(line => {
@@ -332,6 +332,10 @@
             controls.classList.remove('hidden');
             displayMessages(allMessages);
         }
+        
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
 
         function displayMessages(messagesToDisplay) {
             chatWindow.innerHTML = '';
@@ -344,18 +348,22 @@
             messagesToDisplay.forEach((msg, index) => {
                 const delay = messagesToDisplay.length > 50 ? 0 : index * 50;
                 setTimeout(() => {
-                    appendMessage(msg.speaker, msg.content);
+                    const speakerName = msg.speaker === 'gemini' ? geminiNameInput.value : userNameInput.value;
+                    appendMessage(msg.speaker, speakerName, msg.content);
                 }, delay);
             });
         }
 
-        function appendMessage(speaker, message) {
+        function appendMessage(speaker, speakerName, message) {
             const messageRow = document.createElement('div');
-            messageRow.className = 'flex items-end gap-2 message-enter';
+            messageRow.className = 'flex items-start gap-2 message-enter';
             
             const avatar = document.createElement('img');
             avatar.className = `w-10 h-10 rounded-full object-cover avatar-${speaker}`;
             
+            const messageContent = document.createElement('div');
+            messageContent.className = 'flex flex-col';
+
             const bubble = document.createElement('div');
             bubble.className = 'chat-bubble p-3 rounded-2xl';
             bubble.innerHTML = message.replace(/\n/g, '<br>');
@@ -363,14 +371,25 @@
             if (speaker === 'gemini') {
                 messageRow.classList.add('justify-start');
                 avatar.src = geminiAvatarSrc;
+                
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'text-xs text-white mb-1';
+                nameDiv.textContent = speakerName;
+                messageContent.appendChild(nameDiv);
+                
                 bubble.classList.add('bg-white', 'text-gray-800');
+                messageContent.appendChild(bubble);
+
                 messageRow.appendChild(avatar);
-                messageRow.appendChild(bubble);
+                messageRow.appendChild(messageContent);
             } else { // user
                 messageRow.classList.add('justify-end');
                 avatar.src = userAvatarSrc;
                 bubble.classList.add('bg-green-400', 'text-black');
-                messageRow.appendChild(bubble);
+                
+                messageContent.appendChild(bubble); // 使用者不需要顯示名稱
+                
+                messageRow.appendChild(messageContent);
                 messageRow.appendChild(avatar);
             }
 
