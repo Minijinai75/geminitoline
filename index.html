@@ -38,7 +38,7 @@
           <label id="file-label" for="file-upload" class="flex-1 cursor-pointer bg-blue-500 text-white text-center py-2 px-4 rounded-md hover:bg-blue-600 transition-colors">選擇 .txt 檔案</label>
           <button id="paste-toggle" class="text-sm text-blue-600 hover:underline">或貼上文字</button>
         </div>
-        <input id="file-upload" type="file" class="hidden" accept=".txt,text/plain">
+        <input id="file-upload" type="file" class="hidden" accept=".txt,.log,.md,.json,.csv,text/plain">
         <p id="file-name" class="text-sm text-gray-500 mt-2 truncate">尚未選擇檔案</p>
         <div id="paste-area" class="hidden mt-3">
           <textarea id="paste-text" rows="6" class="w-full p-2 border border-gray-300 rounded-md" placeholder="在這裡貼上對話原文…"></textarea>
@@ -153,6 +153,9 @@
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
     const errorBox = document.getElementById('error-box');
 
+    // 允許重新選相同檔名時也會觸發 change
+    fileUpload.addEventListener('click', () => { fileUpload.value = null; });
+
     let userAvatarSrc = userAvatarPreview.src;
     let geminiAvatarSrc = geminiAvatarPreview.src;
     let allMessages = [];
@@ -192,6 +195,8 @@
           fileContent = await readFileSmart(uploadedFile);
           if (!fileContent || !fileContent.trim()) throw new Error('讀到的內容是空白，可能是編碼不相容或檔案損毀');
           generateBtn.disabled = false;
+          // 重置 input 的值，允許再次選擇同一檔案也會觸發 change
+          fileUpload.value = "";
         } catch (err) {
           showError('無法解析此檔案，建議改用右側「貼上文字」或提供另一份純文字檔。詳細：' + (err?.message || err));
           generateBtn.disabled = true;
@@ -215,6 +220,8 @@
       fileContent = text;
       fileNameDisplay.textContent = '（使用貼上內容）';
       generateBtn.disabled = false;
+          // 重置 input 的值，允許再次選擇同一檔案也會觸發 change
+          fileUpload.value = "";
     });
 
     function showError(msg){ errorBox.textContent = msg; errorBox.classList.remove('hidden'); }
