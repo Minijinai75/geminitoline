@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gemini 對話回憶瀏覽器（v4.2 — for MINIJIN）</title>
+  <title>Gemini 對話回憶瀏覽器（v4.3 — for MINIJIN）</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- MODIFIED: Added html2canvas library for direct image generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     html { scroll-behavior: smooth; }
     body { font-family: 'Inter', 'Noto Sans TC', sans-serif; }
-    /* --- MODIFIED: Changed chat window color to a soft purple --- */
-    #chat-window, .screenshot-body { background-color: #BCA8D9; } 
+    #chat-window { background-color: #BCA8D9; } 
     .chat-bubble { max-width: 75%; word-wrap: break-word; white-space: pre-wrap; }
     .message-enter { opacity: 0; transform: translateY(20px); transition: opacity 0.3s ease, transform 0.3s ease; }
     .message-enter-active { opacity: 1; transform: translateY(0); }
@@ -28,28 +29,23 @@
   <div id="main-container" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
     <header class="text-center mb-8">
       <h1 class="text-3xl md:text-4xl font-bold text-purple-800">Gemini 對話回憶瀏覽器</h1>
-      <!-- --- MODIFIED: Changed header description --- -->
       <p class="text-purple-600 mt-2">由 @minijinai75 和她的小精靈們一起優化與建構 💜｜檔案全程在您的裝置離線處理，安全無虞。須配合MINIJIN的GEMINI單窗下載程式才能使用😊</p>
     </header>
 
     <div class="space-y-6 mb-8">
-      <!-- --- MODIFIED: Changed section background and border color --- -->
       <div class="bg-purple-100 p-4 rounded-lg border border-purple-200">
         <h2 class="text-lg font-semibold text-purple-700 mb-3">1. 上傳對話紀錄</h2>
-        <!-- --- MODIFIED: Changed button color --- -->
         <label for="file-upload" class="w-full cursor-pointer bg-purple-500 text-white text-center py-2 px-4 rounded-md hover:bg-purple-600 transition-colors block">選擇 .txt 檔案</label>
         <input id="file-upload" type="file" class="hidden" accept="text/plain,.txt">
         <p id="file-name" class="text-sm text-purple-500 mt-2 truncate">尚未選擇檔案</p>
       </div>
 
       <div class="bg-purple-100 p-4 rounded-lg border border-purple-200">
-        <!-- --- MODIFIED: Changed section title and removed description --- -->
         <h2 class="text-lg font-semibold text-purple-700 mb-3">2.設定對話者ICON及名稱</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div class="flex items-center gap-4">
             <img id="gemini-avatar-preview" src="https://placehold.co/128x128/EFEFEF/777?text=GEMINI" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" alt="Gemini Avatar">
             <div class="w-full">
-              <!-- --- MODIFIED: Changed label text --- -->
               <label for="gemini-name-input" class="text-sm font-medium text-gray-600">角色顯示名稱(可留白）</label>
               <input type="text" id="gemini-name-input" class="w-full p-2 border border-gray-300 rounded-md mt-1" placeholder="">
               <label for="gemini-avatar-upload" class="mt-2 text-sm cursor-pointer text-purple-600 hover:underline">更換 ICON</label>
@@ -59,7 +55,6 @@
           <div class="flex items-center gap-4">
             <img id="user-avatar-preview" src="https://placehold.co/128x128/8DE041/FFF?text=YOU" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" alt="User Avatar">
             <div class="w-full">
-              <!-- --- MODIFIED: Changed label text --- -->
               <label for="user-name-input" class="text-sm font-medium text-gray-600">PC顯示名稱(可留白）</label>
               <input type="text" id="user-name-input" class="w-full p-2 border border-gray-300 rounded-md mt-1" placeholder="">
               <label for="user-avatar-upload" class="mt-2 text-sm cursor-pointer text-purple-600 hover:underline">更換 ICON</label>
@@ -69,7 +64,6 @@
         </div>
       </div>
 
-      <!-- --- MODIFIED: Changed generate button color to pink --- -->
       <button id="generate-btn" class="w-full bg-pink-500 text-white font-bold py-3 px-8 rounded-lg hover:bg-pink-600 transition-transform transform hover:scale-105 shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed disabled:scale-100" disabled>
         生成 / 更新預覽
       </button>
@@ -81,13 +75,13 @@
             <input type="number" id="start-page-input" class="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500" placeholder="起始頁">
             <span class="text-purple-500">-</span>
             <input type="number" id="end-page-input" class="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500" placeholder="結束頁">
-            <!-- --- MODIFIED: Changed button colors --- -->
             <button id="filter-btn" class="bg-purple-500 text-white py-2 px-4 rounded-md hover:bg-purple-600 transition-colors">篩選</button>
           </div>
           <button id="show-all-btn" class="bg-purple-400 text-white py-2 px-4 rounded-md hover:bg-purple-500 transition-colors">顯示全部</button>
+          <!-- MODIFIED: Changed button text and functionality -->
           <button id="screenshot-btn" class="bg-indigo-500 text-white py-2 px-4 rounded-md hover:bg-indigo-600 transition-colors flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            開啟沉浸對話網頁
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            下載對話截圖 (.png)
           </button>
           <p id="page-info" class="text-sm text-purple-600 w-full text-center sm:w-auto mt-2 sm:mt-0"></p>
         </div>
@@ -113,11 +107,11 @@
   </div>
 
   <footer class="w-full text-center mt-8">
-    <p class="text-gray-400 text-xs">v4.2（robust 解析；保留段落換行；顯示 page.xxx 標籤）</p>
+    <p class="text-gray-400 text-xs">v4.3（robust 解析；保留段落換行；顯示 page.xxx 標籤；直接匯出圖片）</p>
   </footer>
 
   <script>
-    // ===== state =====
+    // State, helpers, event listeners... (most of the script is unchanged)
     const fileUpload = document.getElementById('file-upload');
     const fileNameDisplay = document.getElementById('file-name');
     const geminiAvatarUpload = document.getElementById('gemini-avatar-upload');
@@ -139,39 +133,34 @@
     const mainContainer = document.getElementById('main-container');
     const expandFullscreenBtn = document.getElementById('expand-fullscreen-btn');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
-
     let userAvatarSrc = userAvatarPreview.src;
     let geminiAvatarSrc = geminiAvatarPreview.src;
     let allMessages = [];
     let totalPages = 0;
     let isFullscreen = false;
     let fileContent = '';
-
-    // ===== helper: classify (解析規則，與顯示分離) =====
     const geminiHeadPattern = /^(?:[^：:]*\(GEMINI\)|\[\(GEMINI\)\]|\[GEMINI\]|\(GEMINI\)|GEMINI)[：:]/u;
-    const userHeadPattern   = /^\s*(?:你|\[你)[：:]/u;
-    const pageRegex         = /^\s*page\.(\d+)/i;
-
+    const userHeadPattern = /^\s*(?:你|\[你)[：:]/u;
+    const pageRegex = /^\s*page\.(\d+)/i;
     const classifySpeaker = (trimmedLine) => {
       if (userHeadPattern.test(trimmedLine)) return 'user';
       if (geminiHeadPattern.test(trimmedLine)) return 'gemini';
       if (/^[^：:]*\(GEMINI\)[^\n]*[：:]/u.test(trimmedLine)) return 'gemini';
       return null;
     };
-
-    const stripHeader = (trimmedLine) => trimmedLine
-      .replace(/^[^：:]*[：:]\s*/u, '')
-      .replace(/^\]/, '')
-      .trim();
-
-    // ===== upload =====
+    const stripHeader = (trimmedLine) => trimmedLine.replace(/^[^：:]*[：:]\s*/u, '').replace(/^\]/, '').trim();
     fileUpload.addEventListener('change', (event) => {
       const uploadedFile = event.target.files[0];
       if (uploadedFile) {
         fileNameDisplay.textContent = uploadedFile.name;
         const reader = new FileReader();
-        reader.onload = (e) => { fileContent = e.target.result; generateBtn.disabled = false; };
-        reader.onerror = (err) => { alert('讀取檔案失敗：' + (err?.message || '未知錯誤')); };
+        reader.onload = (e) => {
+          fileContent = e.target.result;
+          generateBtn.disabled = false;
+        };
+        reader.onerror = (err) => {
+          alert('讀取檔案失敗：' + (err?.message || '未知錯誤'));
+        };
         reader.readAsText(uploadedFile);
       } else {
         fileNameDisplay.textContent = '尚未選擇檔案';
@@ -179,10 +168,9 @@
         generateBtn.disabled = true;
       }
     });
-
-    generateBtn.addEventListener('click', () => { if (fileContent) parseChat(fileContent); });
-
-    // ===== avatar upload (顯示用) =====
+    generateBtn.addEventListener('click', () => {
+      if (fileContent) parseChat(fileContent);
+    });
     const handleAvatarUpload = (input, preview, storage) => {
       input.addEventListener('change', (event) => {
         const file = event.target.files[0];
@@ -191,29 +179,40 @@
           reader.onload = (e) => {
             const newSrc = e.target.result;
             preview.src = newSrc;
-            if (storage === 'user') userAvatarSrc = newSrc; else geminiAvatarSrc = newSrc;
+            if (storage === 'user') userAvatarSrc = newSrc;
+            else geminiAvatarSrc = newSrc;
           };
           reader.readAsDataURL(file);
         }
       });
     };
-
     handleAvatarUpload(geminiAvatarUpload, geminiAvatarPreview, 'gemini');
     handleAvatarUpload(userAvatarUpload, userAvatarPreview, 'user');
-
     filterBtn.addEventListener('click', () => {
       const startPage = parseInt(startPageInput.value);
       const endPage = parseInt(endPageInput.value) || startPage;
-      if (isNaN(startPage) || startPage <= 0) { alert(`請輸入有效的起始頁碼。`); return; }
-      if (totalPages > 0 && startPage > totalPages) { alert(`起始頁碼不可超過總頁數 ${totalPages}。`); return; }
-      if (isNaN(endPage) || endPage < startPage) { alert(`結束頁碼必須大於或等於起始頁碼。`); return; }
+      if (isNaN(startPage) || startPage <= 0) {
+        alert(`請輸入有效的起始頁碼。`);
+        return;
+      }
+      if (totalPages > 0 && startPage > totalPages) {
+        alert(`起始頁碼不可超過總頁數 ${totalPages}。`);
+        return;
+      }
+      if (isNaN(endPage) || endPage < startPage) {
+        alert(`結束頁碼必須大於或等於起始頁碼。`);
+        return;
+      }
       const filteredMessages = allMessages.filter(msg => msg.page >= startPage && msg.page <= endPage);
       displayMessages(filteredMessages);
     });
-
-    showAllBtn.addEventListener('click', () => { displayMessages(allMessages); startPageInput.value = ''; endPageInput.value = ''; });
-    screenshotBtn.addEventListener('click', generateScreenshotPage);
-
+    showAllBtn.addEventListener('click', () => {
+      displayMessages(allMessages);
+      startPageInput.value = '';
+      endPageInput.value = '';
+    });
+    // --- MODIFIED: Screenshot button now calls generateImageScreenshot ---
+    screenshotBtn.addEventListener('click', generateImageScreenshot);
     expandFullscreenBtn.addEventListener('click', () => {
       if (!isFullscreen) {
         isFullscreen = true;
@@ -223,7 +222,6 @@
         mainContainer.style.display = 'none';
       }
     });
-
     closeFullscreenBtn.addEventListener('click', () => {
       if (isFullscreen) {
         isFullscreen = false;
@@ -234,26 +232,26 @@
         window.scrollTo(0, 0);
       }
     });
-
-    // ===== parse (v4.2) =====
     function parseChat(text) {
       allMessages = [];
       const lines = text.split('\n');
       let currentMessageObj = null;
       let currentPage = 1;
-
       lines.forEach(line => {
         const trimmedLine = line.trim();
         const role = classifySpeaker(trimmedLine);
         const pageMatch = trimmedLine.match(pageRegex);
-
         if (role) {
           if (currentMessageObj) {
             currentMessageObj.content = currentMessageObj.content.trim();
             allMessages.push(currentMessageObj);
           }
           const content = stripHeader(trimmedLine);
-          currentMessageObj = { speaker: role, content: content, page: currentPage };
+          currentMessageObj = {
+            speaker: role,
+            content: content,
+            page: currentPage
+          };
         } else if (pageMatch) {
           currentPage = parseInt(pageMatch[1], 10);
           if (currentMessageObj) {
@@ -264,19 +262,15 @@
           currentMessageObj.content += '\n' + line;
         }
       });
-
       if (currentMessageObj) {
         currentMessageObj.content = currentMessageObj.content.trim();
         allMessages.push(currentMessageObj);
       }
-      
       totalPages = allMessages.length > 0 ? Math.max(...allMessages.map(msg => msg.page)) : 0;
       pageInfo.textContent = `總共 ${totalPages} 頁`;
       controls.classList.remove('hidden');
       displayMessages(allMessages);
     }
-
-    // ===== render =====
     function displayMessages(messagesToDisplay) {
       chatWindow.innerHTML = '';
       if (messagesToDisplay.length === 0) {
@@ -291,7 +285,6 @@
         }, delay);
       });
     }
-
     function appendMessage(speaker, speakerName, message) {
       const messageRow = document.createElement('div');
       const avatar = document.createElement('img');
@@ -299,12 +292,9 @@
       const messageContent = document.createElement('div');
       const bubble = document.createElement('div');
       bubble.className = 'chat-bubble p-3 rounded-2xl';
-
       const safe = (message || '').replace(/\n/g, '<br>');
       bubble.innerHTML = safe;
-
       const showName = !!(speakerName && speakerName.trim().length);
-
       if (speaker === 'gemini') {
         messageContent.className = 'flex flex-col';
         messageRow.className = 'flex items-start gap-2 message-enter justify-start';
@@ -315,7 +305,7 @@
           nameDiv.textContent = speakerName;
           messageContent.appendChild(nameDiv);
         }
-        bubble.classList.add('bg-white', 'text-gray-800'); // 白泡
+        bubble.classList.add('bg-white', 'text-gray-800');
         messageContent.appendChild(bubble);
         messageRow.appendChild(avatar);
         messageRow.appendChild(messageContent);
@@ -329,101 +319,122 @@
           nameDiv.textContent = speakerName;
           messageContent.appendChild(nameDiv);
         }
-        // --- MODIFIED: Changed "green bubble" to a pink bubble ---
-        bubble.classList.add('bg-pink-300', 'text-gray-800'); // 粉紅泡
+        bubble.classList.add('bg-pink-300', 'text-gray-800');
         messageContent.appendChild(bubble);
         messageRow.appendChild(messageContent);
         messageRow.appendChild(avatar);
       }
-
       chatWindow.appendChild(messageRow);
-      requestAnimationFrame(() => { messageRow.classList.add('message-enter-active'); });
+      requestAnimationFrame(() => {
+        messageRow.classList.add('message-enter-active');
+      });
       chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 
-    // ===== screenshot page =====
-    function generateScreenshotPage() {
+    // --- NEW: Function to generate and download a PNG screenshot ---
+    function generateImageScreenshot() {
+      const originalButtonContent = screenshotBtn.innerHTML;
+      screenshotBtn.disabled = true;
+      screenshotBtn.innerHTML = '圖片生成中...';
+
       const startPage = parseInt(startPageInput.value) || 1;
       const endPage = parseInt(endPageInput.value) || (startPageInput.value ? startPage : totalPages);
       const messagesToDisplay = allMessages.filter(msg => msg.page >= startPage && msg.page <= endPage);
-      if (messagesToDisplay.length === 0) { alert('目前沒有可供截圖的對話內容。'); return; }
-      const screenshotData = {
-        messages: messagesToDisplay,
-        geminiAvatar: geminiAvatarSrc,
-        userAvatar: userAvatarSrc,
-        geminiName: geminiNameInput.value,
-        userName: userNameInput.value,
-      };
-      localStorage.setItem('screenshotData', JSON.stringify(screenshotData));
-      const newPageContent = `
-        <!DOCTYPE html>
-        <html lang="zh-Hant">
-        <head>
-          <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>對話紀錄截圖</title>
-          <script src="https://cdn.tailwindcss.com"><\/script>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
-          <style>
-            /* --- MODIFIED: Changed screenshot page background color --- */
-            body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #BCA8D9; }
-            .chat-bubble { max-width: 75%; word-wrap: break-word; white-space: pre-wrap; }
-          </style>
-        </head>
-        <body class="p-4"><div id="chat-container" class="max-w-md mx-auto space-y-4"></div>
-          <script>
-            window.onload = function() {
-              const data = JSON.parse(localStorage.getItem('screenshotData'));
-              if (!data) return;
-              const container = document.getElementById('chat-container');
-              data.messages.forEach(msg => {
-                const messageRow = document.createElement('div');
-                const avatar = document.createElement('img');
-                avatar.className = 'w-10 h-10 rounded-full object-cover';
-                const messageContent = document.createElement('div');
-                const bubble = document.createElement('div');
-                bubble.className = 'chat-bubble p-3 rounded-2xl';
-                const safe = (msg.content||'').replace(/\\n/g, '<br>');
-                bubble.innerHTML = safe;
-                const showNameGemini = !!(data.geminiName && data.geminiName.trim().length);
-                const showNameUser =   !!(data.userName && data.userName.trim().length);
-                if (msg.speaker === 'gemini') {
-                  messageContent.className = 'flex flex-col';
-                  messageRow.className = 'flex items-start gap-2 justify-start';
-                  avatar.src = data.geminiAvatar;
-                  if (showNameGemini) {
-                    const nameDiv = document.createElement('div');
-                    nameDiv.className = 'text-xs text-white mb-1';
-                    nameDiv.textContent = data.geminiName;
-                    messageContent.appendChild(nameDiv);
-                  }
-                  bubble.classList.add('bg-white', 'text-gray-800');
-                  messageContent.appendChild(bubble);
-                  messageRow.appendChild(avatar);
-                  messageRow.appendChild(messageContent);
-                } else {
-                  messageContent.className = 'flex flex-col items-end';
-                  messageRow.className = 'flex items-start gap-2 justify-end';
-                  avatar.src = data.userAvatar;
-                  if (showNameUser) {
-                    const nameDiv = document.createElement('div');
-                    nameDiv.className = 'text-xs text-white mb-1 text-right';
-                    nameDiv.textContent = data.userName;
-                    messageContent.appendChild(nameDiv);
-                  }
-                  /* --- MODIFIED: Changed screenshot bubble color --- */
-                  bubble.classList.add('bg-pink-300', 'text-gray-800');
-                  messageContent.appendChild(bubble);
-                  messageRow.appendChild(messageContent);
-                  messageRow.appendChild(avatar);
-                }
-                container.appendChild(messageRow);
-              });
-            }
-          <\/script>
-        </body></html>`;
-      const newWindow = window.open();
-      newWindow.document.write(newPageContent);
-      newWindow.document.close();
+
+      if (messagesToDisplay.length === 0) {
+        alert('沒有可供截圖的對話內容。');
+        screenshotBtn.disabled = false;
+        screenshotBtn.innerHTML = originalButtonContent;
+        return;
+      }
+
+      // 1. Create a hidden container for rendering
+      const renderContainer = document.createElement('div');
+      renderContainer.id = 'render-container';
+      renderContainer.style.position = 'absolute';
+      renderContainer.style.left = '-9999px'; // Move it off-screen
+      renderContainer.style.width = '448px'; // Corresponds to max-w-md
+      renderContainer.style.padding = '1rem'; // p-4
+      renderContainer.style.backgroundColor = '#BCA8D9';
+      renderContainer.style.fontFamily = "'Inter', 'Noto Sans TC', sans-serif";
+      
+      const chatContainer = document.createElement('div');
+      chatContainer.className = 'space-y-4';
+      renderContainer.appendChild(chatContainer);
+      document.body.appendChild(renderContainer);
+
+      // 2. Build the chat HTML inside the hidden container
+      messagesToDisplay.forEach(msg => {
+          const speakerName = msg.speaker === 'gemini' ? geminiNameInput.value : userNameInput.value;
+          const showName = !!(speakerName && speakerName.trim().length);
+          const safe = (msg.content || '').replace(/\n/g, '<br>');
+
+          const messageRow = document.createElement('div');
+          messageRow.className = 'flex items-start gap-2';
+          
+          const avatar = document.createElement('img');
+          avatar.className = 'w-10 h-10 rounded-full object-cover';
+
+          const messageContent = document.createElement('div');
+          messageContent.className = 'flex flex-col';
+          
+          const bubble = document.createElement('div');
+          bubble.className = 'chat-bubble p-3 rounded-2xl';
+          bubble.innerHTML = safe;
+
+          if (msg.speaker === 'gemini') {
+              messageRow.classList.add('justify-start');
+              avatar.src = geminiAvatarSrc;
+              if (showName) {
+                  const nameDiv = document.createElement('div');
+                  nameDiv.className = 'text-xs text-white mb-1';
+                  nameDiv.textContent = speakerName;
+                  messageContent.appendChild(nameDiv);
+              }
+              bubble.classList.add('bg-white', 'text-gray-800');
+              messageContent.appendChild(bubble);
+              messageRow.appendChild(avatar);
+              messageRow.appendChild(messageContent);
+          } else { // 'user'
+              messageRow.classList.add('justify-end');
+              messageContent.classList.add('items-end');
+              avatar.src = userAvatarSrc;
+              if (showName) {
+                  const nameDiv = document.createElement('div');
+                  nameDiv.className = 'text-xs text-white mb-1 text-right';
+                  nameDiv.textContent = speakerName;
+                  messageContent.appendChild(nameDiv);
+              }
+              bubble.classList.add('bg-pink-300', 'text-gray-800');
+              messageContent.appendChild(bubble);
+              messageRow.appendChild(messageContent);
+              messageRow.appendChild(avatar);
+          }
+          chatContainer.appendChild(messageRow);
+      });
+
+      // 3. Use html2canvas to capture the hidden container
+      html2canvas(renderContainer, { 
+        useCORS: true, // Important for external images (avatars)
+        allowTaint: true 
+      }).then(canvas => {
+        // 4. Create a link and trigger download
+        const link = document.createElement('a');
+        link.download = `chat-screenshot-${startPage}-${endPage}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        // 5. Clean up
+        document.body.removeChild(renderContainer);
+        screenshotBtn.disabled = false;
+        screenshotBtn.innerHTML = originalButtonContent;
+      }).catch(err => {
+        alert('圖片生成失敗！請檢查控制台錯誤。');
+        console.error("html2canvas error:", err);
+        document.body.removeChild(renderContainer);
+        screenshotBtn.disabled = false;
+        screenshotBtn.innerHTML = originalButtonContent;
+      });
     }
   </script>
 </body>
