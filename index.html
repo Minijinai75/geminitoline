@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gemini 對話回憶瀏覽器（v7 — Page Line Support）</title>
+  <title>Gemini 對話回憶瀏覽器（v8 — Robust Upload & Encoding）</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,17 +25,28 @@
 <body class="bg-gray-100 min-h-screen p-4">
 
   <div id="main-container" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
-    <header class="text-center mb-8">
-      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v7）</h1>
-      <p class="text-gray-600 mt-2">頁數可由 <span class="font-semibold">GEMINI 行</span>的 <code>page.xxx/P.xxx</code>、<span class="font-semibold">或獨立一行</span>的 <code>page.xxx/P.xxx</code> 觸發；白泡=GEMINI、綠泡=你；名稱/ICON 與解析分離；首句不空行。</p>
+    <header class="text-center mb-6">
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v8）</h1>
+      <p class="text-gray-600 mt-2">強化上傳/解碼穩定性；頁碼支援：GEMINI 標頭/內容開頭與獨立一行 <code>page.xxx</code>/<code>P.xxx</code>；白泡=GEMINI、綠泡=你；顯示名稱/ICON 與解析分離；首句不空行。</p>
+      <div id="error-box" class="hidden mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md p-3"></div>
     </header>
 
     <div class="space-y-6 mb-8">
       <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
         <h2 class="text-lg font-semibold text-gray-700 mb-3">1. 上傳對話紀錄</h2>
-        <label for="file-upload" class="w-full cursor-pointer bg-blue-500 text-white text-center py-2 px-4 rounded-md hover:bg-blue-600 transition-colors block">選擇 .txt 檔案</label>
-        <input id="file-upload" type="file" class="hidden" accept="text/plain,.txt">
+        <div class="flex items-center gap-3">
+          <label id="file-label" for="file-upload" class="flex-1 cursor-pointer bg-blue-500 text-white text-center py-2 px-4 rounded-md hover:bg-blue-600 transition-colors">選擇 .txt 檔案</label>
+          <button id="paste-toggle" class="text-sm text-blue-600 hover:underline">或貼上文字</button>
+        </div>
+        <input id="file-upload" type="file" class="hidden" accept=".txt,text/plain">
         <p id="file-name" class="text-sm text-gray-500 mt-2 truncate">尚未選擇檔案</p>
+        <div id="paste-area" class="hidden mt-3">
+          <textarea id="paste-text" rows="6" class="w-full p-2 border border-gray-300 rounded-md" placeholder="在這裡貼上對話原文…"></textarea>
+          <div class="mt-2 flex justify-end gap-2">
+            <button id="paste-clear" class="text-sm px-3 py-1 rounded-md border">清空</button>
+            <button id="paste-use" class="text-sm px-3 py-1 rounded-md bg-blue-500 text-white">使用貼上內容</button>
+          </div>
+        </div>
       </div>
 
       <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -99,25 +110,34 @@
       <div class="text-center text-white/70 flex flex-col items-center justify-center h-full">
         <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="opacity-50 mb-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
         <p class="font-semibold">預覽區域</p>
-        <p class="text-sm">請先上傳對話檔案</p>
+        <p class="text-sm">請先上傳或貼上對話內容</p>
       </div>
     </div>
   </div>
 
   <footer class="w-full text-center mt-8">
-    <p class="text-gray-400 text-xs">v7（頁數偵測：GEMINI 標頭/內容開頭，或獨立一行 page/P + 連接符 + 數字；名稱/ICON 分離；首句無空行）</p>
+    <p class="text-gray-400 text-xs">v8（上傳/解碼穩定度＋頁碼全面偵測；名稱/ICON 分離；首句無空行）</p>
   </footer>
 
   <script>
-    // ===== state =====
+    // ===== 狀態 =====
     const fileUpload = document.getElementById('file-upload');
+    const fileLabel = document.getElementById('file-label');
     const fileNameDisplay = document.getElementById('file-name');
+    const pasteToggle = document.getElementById('paste-toggle');
+    const pasteArea = document.getElementById('paste-area');
+    const pasteText = document.getElementById('paste-text');
+    const pasteUse = document.getElementById('paste-use');
+    const pasteClear = document.getElementById('paste-clear');
+
     const geminiAvatarUpload = document.getElementById('gemini-avatar-upload');
     const userAvatarUpload = document.getElementById('user-avatar-upload');
     const geminiAvatarPreview = document.getElementById('gemini-avatar-preview');
     const userAvatarPreview = document.getElementById('user-avatar-preview');
+
     const geminiNameInput = document.getElementById('gemini-name-input');
     const userNameInput = document.getElementById('user-name-input');
+
     const generateBtn = document.getElementById('generate-btn');
     const chatWindow = document.getElementById('chat-window');
     const controls = document.getElementById('controls');
@@ -131,6 +151,7 @@
     const mainContainer = document.getElementById('main-container');
     const expandFullscreenBtn = document.getElementById('expand-fullscreen-btn');
     const closeFullscreenBtn = document.getElementById('close-fullscreen-btn');
+    const errorBox = document.getElementById('error-box');
 
     let userAvatarSrc = userAvatarPreview.src;
     let geminiAvatarSrc = geminiAvatarPreview.src;
@@ -141,7 +162,7 @@
 
     const foundPages = new Set();
 
-    // ===== classify（解析規則，與顯示分離） =====
+    // ===== 解析規則（與顯示分離） =====
     const geminiHeadPattern = /^(?:[^：:]*[\(（]GEMINI[\)）]|\[\(GEMINI\)\]|\[GEMINI\]|GEMINI)[：:]/u;
     const userHeadPattern   = /^\s*(?:你|\[你)[：:]/u; // 你： 或 [你：]
 
@@ -151,27 +172,31 @@
     const takeHeader  = (s) => { const i = s.search(/[：:]/u); return i >= 0 ? s.slice(0, i) : s; };
     const takeContent = (s) => { const i = s.search(/[：:]/u); return i >= 0 ? s.slice(i + 1).trim() : s; };
 
-    // 支援 page token：. ． 。 : ： - 或空白
-    // 例：page.001 / P.001 / page：001 / page．001 / page 001 / P-12
+    // 支援 page token：. ． 。 : ： - 或空白；例：page.001 / P.001 / page：001 / page．001 / page 001 / P-12
     const pageTokenRegex      = /(?:^|[\s\[\(（【<])(?:page|p)\s*(?:[\.．。:：\-]?\s*)(\d{1,6})/iu;
     const pageLineOnlyRegex   = /^\s*(?:page|p)\s*(?:[\.．。:：\-]?\s*)(\d{1,6})\s*$/iu; // 獨立一行
     const findPageIn          = (str) => { const m = str.match(pageTokenRegex); return m ? parseInt(m[1], 10) : null; };
 
-    // 從內容開頭移除一次 page token（若存在）
     const stripLeadingPageToken = (s) => s.replace(new RegExp('^\\s*(?:page|p)\\s*(?:[\\.．。:：\\-]?\\s*)(\\d{1,6})\\s*', 'iu'), '').trim();
-
-    // 去除行首到第一個冒號（含）與殘留右括號]
     const stripHeader = (s) => s.replace(/^[^：:]*[：:]\s*/u, '').replace(/^\]/, '').trim();
 
-    // ===== upload =====
-    fileUpload.addEventListener('change', (event) => {
+    // ===== 上傳＆貼上 =====
+    fileLabel.addEventListener('click', () => fileUpload.click());
+
+    fileUpload.addEventListener('change', async (event) => {
       const uploadedFile = event.target.files[0];
+      clearError();
       if (uploadedFile) {
-        fileNameDisplay.textContent = uploadedFile.name;
-        const reader = new FileReader();
-        reader.onload = (e) => { fileContent = e.target.result; generateBtn.disabled = false; };
-        reader.onerror = (err) => { alert('讀取檔案失敗：' + (err?.message || '未知錯誤')); };
-        reader.readAsText(uploadedFile);
+        fileNameDisplay.textContent = `${uploadedFile.name}（${(uploadedFile.size/1024).toFixed(1)} KB）`;
+        try {
+          fileContent = await readFileSmart(uploadedFile);
+          if (!fileContent || !fileContent.trim()) throw new Error('讀到的內容是空白，可能是編碼不相容或檔案損毀');
+          generateBtn.disabled = false;
+        } catch (err) {
+          showError('無法解析此檔案，建議改用右側「貼上文字」或提供另一份純文字檔。詳細：' + (err?.message || err));
+          generateBtn.disabled = true;
+          fileContent = '';
+        }
       } else {
         fileNameDisplay.textContent = '尚未選擇檔案';
         fileContent = '';
@@ -179,9 +204,70 @@
       }
     });
 
+    pasteToggle.addEventListener('click', () => {
+      pasteArea.classList.toggle('hidden');
+    });
+    pasteClear.addEventListener('click', () => { pasteText.value = ''; });
+    pasteUse.addEventListener('click', () => {
+      clearError();
+      const text = pasteText.value || '';
+      if (!text.trim()) { showError('貼上的內容是空白'); return; }
+      fileContent = text;
+      fileNameDisplay.textContent = '（使用貼上內容）';
+      generateBtn.disabled = false;
+    });
+
+    function showError(msg){ errorBox.textContent = msg; errorBox.classList.remove('hidden'); }
+    function clearError(){ errorBox.textContent = ''; errorBox.classList.add('hidden'); }
+
+    async function readFileSmart(file){
+      // 以 ArrayBuffer 讀取，做簡易編碼偵測與多方案解碼
+      const buf = await file.arrayBuffer();
+      const u8 = new Uint8Array(buf);
+      // BOM 判斷
+      if (u8.length >= 3 && u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF) {
+        return new TextDecoder('utf-8').decode(u8.subarray(3));
+      }
+      if (u8.length >= 2 && u8[0] === 0xFF && u8[1] === 0xFE) {
+        return new TextDecoder('utf-16le').decode(u8.subarray(2));
+      }
+      if (u8.length >= 2 && u8[0] === 0xFE && u8[1] === 0xFF) {
+        return new TextDecoder('utf-16be').decode(u8.subarray(2));
+      }
+      const tryList = ['utf-8', 'utf-16le', 'utf-16be', 'big5', 'gbk'];
+      for (const enc of tryList) {
+        try {
+          const dec = new TextDecoder(enc, { fatal: false });
+          const text = dec.decode(u8);
+          if (!looksCorrupted(text)) return text;
+        } catch (e) { /* 某些瀏覽器不支援部分編碼，略過 */ }
+      }
+      // 最後再用預設解碼一次
+      try { return new TextDecoder().decode(u8); } catch(e) { /* ignore */ }
+      // 退回 FileReader（極少需要）
+      return await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = () => reject(fr.error || new Error('FileReader 讀取失敗'));
+        fr.readAsText(file, 'utf-8');
+      });
+    }
+
+    function looksCorrupted(text){
+      if (!text) return true;
+      const sample = text.slice(0, 10000);
+      const total = sample.length || 1;
+      let bad = 0;
+      for (let i = 0; i < sample.length; i++) {
+        const code = sample.charCodeAt(i);
+        if (code === 0xFFFD || code === 0) bad++;
+      }
+      return (bad / total) > 0.02; // 2% 以上視為可疑
+    }
+
     generateBtn.addEventListener('click', () => { if (fileContent) parseChat(fileContent); });
 
-    // ===== avatar upload（僅視覺） =====
+    // ===== ICON 上傳（僅視覺） =====
     const handleAvatarUpload = (input, preview, storage) => {
       input.addEventListener('change', (event) => {
         const file = event.target.files[0];
@@ -234,7 +320,7 @@
       }
     });
 
-    // ===== parse =====
+    // ===== 解析 =====
     function parseChat(text) {
       allMessages = [];
       foundPages.clear();
@@ -246,23 +332,20 @@
         const trimmedLine = rawLine.trim();
         if (!trimmedLine) continue;
 
-        // A) 獨立 page 行：page.166 / P.12 等
+        // A) 獨立 page 行
         const mLine = trimmedLine.match(pageLineOnlyRegex);
         if (mLine) {
           if (currentMessageObj) { allMessages.push(currentMessageObj); currentMessageObj = null; }
           currentPage = parseInt(mLine[1], 10);
           foundPages.add(currentPage);
-          continue; // 不渲染這一行
+          continue;
         }
 
         // B) GEMINI 開頭
         if (isGeminiHeader(trimmedLine)) {
           if (currentMessageObj) allMessages.push(currentMessageObj);
-
           const header = takeHeader(trimmedLine);
           let content = takeContent(trimmedLine);
-
-          // header 內尋找 page；找不到就從內容開頭尋找一次
           let pageFrom = findPageIn(header);
           if (pageFrom == null) pageFrom = findPageIn(content.slice(0, 30));
           if (pageFrom != null) {
@@ -270,7 +353,6 @@
             foundPages.add(currentPage);
             content = stripLeadingPageToken(content);
           }
-
           currentMessageObj = { speaker: 'gemini', content, page: currentPage };
           continue;
         }
@@ -308,7 +390,7 @@
       displayMessages(allMessages);
     }
 
-    // ===== render =====
+    // ===== 渲染 =====
     function displayMessages(messagesToDisplay) {
       chatWindow.innerHTML = '';
       if (messagesToDisplay.length === 0) {
@@ -372,7 +454,7 @@
       chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 
-    // ===== screenshot page =====
+    // ===== 截圖頁 =====
     function generateScreenshotPage() {
       const startPage = parseInt(startPageInput.value) || 1;
       const endPage = parseInt(endPageInput.value) || (startPageInput.value ? startPage : totalPages);
