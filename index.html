@@ -133,7 +133,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 手機預覽畫面 -->
     <div id="preview-container" class="w-full max-w-md mx-auto bg-black rounded-[40px] p-4 shadow-2xl border-4 border-gray-800 transition-all duration-300 relative">
         <button id="expand-fullscreen-btn" class="absolute top-4 right-4 z-10 bg-white/80 rounded-full p-2 shadow-lg backdrop-blur-sm hover:bg-gray-200 transition-colors">
@@ -145,7 +145,7 @@
         <div class="w-full h-2 bg-black rounded-t-lg"></div>
         <div id="chat-window" class="h-[65vh] md:h-[70vh] overflow-y-auto p-4 space-y-4 rounded-b-lg">
             <div class="text-center text-white/70 flex flex-col items-center justify-center h-full">
-                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="opacity-50 mb-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="opacity-50 mb-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4-4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                 <p class="font-semibold">預覽區域</p>
                 <p class="text-sm">請先上傳對話檔案</p>
             </div>
@@ -154,7 +154,7 @@
 
     <!-- 版本號 -->
     <footer class="w-full text-center mt-8">
-        <p class="text-gray-400 text-xs">v6.1 (一致性排版修正)</p>
+        <p class="text-gray-400 text-xs">v6.4 (移除聊天氣泡首行空白)</p>
     </footer>
 
 
@@ -167,7 +167,7 @@
         const geminiAvatarPreview = document.getElementById('gemini-avatar-preview');
         const userAvatarPreview = document.getElementById('user-avatar-preview');
         const geminiNameInput = document.getElementById('gemini-name-input');
-        const userNameInput = document.getElementById('user-name-input');
+        the userNameInput = document.getElementById('user-name-input');
         const generateBtn = document.getElementById('generate-btn');
         const chatWindow = document.getElementById('chat-window');
         const controls = document.getElementById('controls');
@@ -207,7 +207,7 @@
                 generateBtn.disabled = true;
             }
         });
-        
+
         generateBtn.addEventListener('click', () => {
             if(fileContent) {
                 parseChat(fileContent);
@@ -253,7 +253,7 @@
             startPageInput.value = '';
             endPageInput.value = '';
         });
-        
+
         screenshotBtn.addEventListener('click', generateScreenshotPage);
 
         expandFullscreenBtn.addEventListener('click', () => {
@@ -278,7 +278,7 @@
         });
 
         // --- 核心功能函式 ---
-        
+
         function escapeRegExp(string) {
             return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
@@ -288,9 +288,8 @@
             const lines = text.split('\n');
             let currentMessageObj = null;
             let currentPage = 1;
-            const geminiParseName = "石睿🐏(GEMINI)";
             const userParseName = "你";
-            const geminiRegex = new RegExp(`^${escapeRegExp(geminiParseName)}：`);
+            const geminiRegex = /^.*?\(GEMINI\)：/;
             const userRegex = new RegExp(`^${escapeRegExp(userParseName)}：`);
             const pageRegex = /^page\.\d+/;
 
@@ -318,7 +317,7 @@
             if (currentMessageObj) {
                 allMessages.push(currentMessageObj);
             }
-            
+
             totalPages = currentPage;
             pageInfo.textContent = `總共 ${totalPages} 頁`;
             controls.classList.remove('hidden');
@@ -345,13 +344,14 @@
             const avatar = document.createElement('img');
             avatar.className = `w-10 h-10 rounded-full object-cover avatar-${speaker}`;
             const messageContent = document.createElement('div');
-            
+
             const bubble = document.createElement('div');
             bubble.className = 'chat-bubble p-3 rounded-2xl';
-            bubble.innerHTML = message.replace(/\n/g, '<br>');
+            const cleanMessage = message.replace(/^[\r\n]+/, '');
+            bubble.innerHTML = cleanMessage.replace(/\n/g, '<br>');
 
             if (speaker === 'gemini') {
-                messageContent.className = 'flex flex-col'; 
+                messageContent.className = 'flex flex-col';
                 messageRow.className = 'flex items-start gap-2 message-enter justify-start';
                 avatar.src = geminiAvatarSrc;
                 const nameDiv = document.createElement('div');
@@ -363,10 +363,10 @@
                 messageRow.appendChild(avatar);
                 messageRow.appendChild(messageContent);
             } else { // user
-                messageContent.className = 'flex flex-col items-end'; 
+                messageContent.className = 'flex flex-col items-end';
                 messageRow.className = 'flex items-start gap-2 message-enter justify-end';
                 avatar.src = userAvatarSrc;
-                
+
                 // *** 修正：為角色2也加上名稱標籤 ***
                 const nameDiv = document.createElement('div');
                 nameDiv.className = 'text-xs text-white mb-1 text-right';
@@ -431,7 +431,8 @@
                                 const messageContent = document.createElement('div');
                                 const bubble = document.createElement('div');
                                 bubble.className = 'chat-bubble p-3 rounded-2xl';
-                                bubble.innerHTML = msg.content.replace(/\\n/g, '<br>');
+                                const cleanContent = msg.content.replace(/^[\\r\\n]+/, '');
+                                bubble.innerHTML = cleanContent.replace(/\\n/g, '<br>');
 
                                 if (msg.speaker === 'gemini') {
                                     messageContent.className = 'flex flex-col';
@@ -449,7 +450,7 @@
                                     messageContent.className = 'flex flex-col items-end';
                                     messageRow.className = 'flex items-start gap-2 justify-end';
                                     avatar.src = data.userAvatar;
-                                    
+
                                     // *** 修正：為角色2也加上名稱標籤 ***
                                     const nameDiv = document.createElement('div');
                                     nameDiv.className = 'text-xs text-white mb-1 text-right';
@@ -466,7 +467,7 @@
                         }
                     <\/script>
                 </body></html>`;
-            
+
             const newWindow = window.open();
             newWindow.document.write(newPageContent);
             newWindow.document.close();
