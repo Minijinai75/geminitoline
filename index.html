@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gemini 對話回憶瀏覽器（v5 by minijin）</title>
+  <title>Gemini 對話回憶瀏覽器（v4.1 — Enhanced Parser）</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,7 +26,7 @@
 
   <div id="main-container" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
     <header class="text-center mb-8">
-      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v5）</h1>
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v4.1）</h1>
       <p class="text-gray-500 mt-2">解析與顯示完全分離；GEMINI 行首任意名稱+<code>(GEMINI)</code> 皆判定為白泡；<code>你：</code>（含 <code>[你：]</code>）為綠泡；首句無空行。</p>
     </header>
 
@@ -105,7 +105,7 @@
   </div>
 
   <footer class="w-full text-center mt-8">
-    <p class="text-gray-400 text-xs">v4（robust 解析：<code>任意名稱 + (GEMINI) + ：</code>；<code>你：</code>；名稱/ICON 完全分離；首句無空行）</p>
+    <p class="text-gray-400 text-xs">v4.1（robust 解析：<code>任意名稱 + (GEMINI) + ：</code>；<code>你：</code>；名稱/ICON 完全分離；保留段落換行）</p>
   </footer>
 
   <script>
@@ -140,16 +140,9 @@
     let fileContent = '';
 
     // ===== helper: classify (解析規則，與顯示分離) =====
-    // 規則：
-    // 1) GEMINI：行首第一個冒號前若出現 "(GEMINI)"，視為 GEMINI（白泡）
-    //    亦支援 [GEMINI：]、[(GEMINI)：]、(GEMINI)：、GEMINI： 等舊寫法
-    // 2) 你：與 [你：] 視為使用者（綠泡）
-    const geminiHeadPattern = /^(?:[^：:]*\(GEMINI\)|\[\(GEMINI\)\]|\[GEMINI\]|\(GEMINI\)|GEMINI)[：:]/u; // 必須在第一個冒號前
+    const geminiHeadPattern = /^(?:[^：:]*\(GEMINI\)|\[\(GEMINI\)\]|\[GEMINI\]|\(GEMINI\)|GEMINI)[：:]/u;
     const userHeadPattern   = /^\s*(?:你|\[你)[：:]/u;
-    // --- MODIFIED START ---
-    // 修改 pageRegex 以捕捉 page. 後面的數字
     const pageRegex         = /^\s*page\.(\d+)/i;
-    // --- MODIFIED END ---
 
     const classifySpeaker = (trimmedLine) => {
       if (userHeadPattern.test(trimmedLine)) return 'user';
@@ -234,54 +227,54 @@
       }
     });
 
-    // ===== parse =====
-    // --- MODIFIED START ---
-    // 重寫 parseChat 函式以正確處理 page.xxx
+    // ===== parse (MODIFIED) =====
     function parseChat(text) {
       allMessages = [];
       const lines = text.split('\n');
       let currentMessageObj = null;
-      // 預設為第 1 頁，給予任何在 "page.1" 標籤出現前的訊息
       let currentPage = 1;
 
-      lines.forEach((line) => {
+      lines.forEach(line => {
         const trimmedLine = line.trim();
+        const role = classifySpeaker(trimmedLine);
         const pageMatch = trimmedLine.match(pageRegex);
 
-        if (pageMatch) {
-          if (currentMessageObj) { allMessages.push(currentMessageObj); currentMessageObj = null; }
-          // 從 pageMatch[1] 提取捕捉到的數字，並更新 currentPage
-          currentPage = parseInt(pageMatch[1], 10);
-          return; // 處理完 page 標籤後跳到下一行
-        }
-
-        const role = classifySpeaker(trimmedLine);
         if (role) {
-          if (currentMessageObj) allMessages.push(currentMessageObj);
-          const content = stripHeader(trimmedLine);
-          // 建立訊息物件時，使用從 page.xxx 提取的正確頁碼
-          currentMessageObj = { speaker: role, content, page: currentPage };
-          return;
-        }
-
-        // 內容延續
-        if (currentMessageObj) {
-          const addition = line.trim();
-          if (addition.length) {
-            currentMessageObj.content += (currentMessageObj.content ? '\n' : '') + addition;
+          // New speaker detected, finalize the previous message.
+          if (currentMessageObj) {
+            // Trim final content to remove leading/trailing blank lines from the object
+            currentMessageObj.content = currentMessageObj.content.trim();
+            allMessages.push(currentMessageObj);
           }
+          // Start a new message object.
+          const content = stripHeader(trimmedLine);
+          currentMessageObj = { speaker: role, content: content, page: currentPage };
+        } else if (pageMatch) {
+          // Page marker detected, update current page number.
+          currentPage = parseInt(pageMatch[1], 10);
+          // If a message is being built, assign the new page number to it.
+          if (currentMessageObj) {
+            currentMessageObj.page = currentPage;
+          }
+          // Do NOT add the "page.xxx" line to the content itself.
+        } else if (currentMessageObj) {
+          // It's a continuation line, append the raw line to preserve paragraphs.
+          currentMessageObj.content += '\n' + line;
         }
+        // Lines before the first speaker are ignored.
       });
 
-      if (currentMessageObj) allMessages.push(currentMessageObj);
-
-      // 更穩健地計算總頁數：取所有訊息中最大的頁碼
+      // Add the very last message in the file.
+      if (currentMessageObj) {
+        currentMessageObj.content = currentMessageObj.content.trim();
+        allMessages.push(currentMessageObj);
+      }
+      
       totalPages = allMessages.length > 0 ? Math.max(...allMessages.map(msg => msg.page)) : 0;
       pageInfo.textContent = `總共 ${totalPages} 頁`;
       controls.classList.remove('hidden');
       displayMessages(allMessages);
     }
-    // --- MODIFIED END ---
 
     // ===== render =====
     function displayMessages(messagesToDisplay) {
@@ -307,7 +300,8 @@
       const bubble = document.createElement('div');
       bubble.className = 'chat-bubble p-3 rounded-2xl';
 
-      const safe = (message || '').replace(/^\s+/, '').replace(/\n/g, '<br>');
+      // Convert newlines to <br> for HTML display.
+      const safe = (message || '').replace(/\n/g, '<br>');
       bubble.innerHTML = safe;
 
       const showName = !!(speakerName && speakerName.trim().length);
@@ -387,7 +381,7 @@
                 const messageContent = document.createElement('div');
                 const bubble = document.createElement('div');
                 bubble.className = 'chat-bubble p-3 rounded-2xl';
-                const safe = (msg.content||'').replace(/^\\s+/, '').replace(/\\n/g, '<br>');
+                const safe = (msg.content||'').replace(/\\n/g, '<br>');
                 bubble.innerHTML = safe;
                 const showNameGemini = !!(data.geminiName && data.geminiName.trim().length);
                 const showNameUser =   !!(data.userName && data.userName.trim().length);
@@ -432,4 +426,3 @@
   </script>
 </body>
 </html>
-
