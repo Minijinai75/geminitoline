@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gemini 對話回憶瀏覽器（v4 — Robust GEMINI Parse）</title>
+  <title>Gemini 對話回憶瀏覽器（v5 — GEMINI Page Tags）</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,8 +26,8 @@
 
   <div id="main-container" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
     <header class="text-center mb-8">
-      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v4）</h1>
-      <p class="text-gray-500 mt-2">解析與顯示完全分離；GEMINI 行首任意名稱+<code>(GEMINI)</code> 皆判定為白泡；<code>你：</code>（含 <code>[你：]</code>）為綠泡；首句無空行。</p>
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v5）</h1>
+      <p class="text-gray-500 mt-2">解析與顯示分離；<span class="font-medium">頁數依 GEMINI 標頭中的 <code>page.001</code> / <code>P.001</code> 設定</span>；白泡=GEMINI、綠泡=你；首句不空行。</p>
     </header>
 
     <div class="space-y-6 mb-8">
@@ -71,9 +71,9 @@
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
           <div class="flex items-center gap-2 flex-wrap justify-center">
             <label for="start-page-input" class="text-gray-700 font-medium">頁數範圍:</label>
-            <input type="number" id="start-page-input" class="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" placeholder="起始頁">
+            <input type="number" id="start-page-input" class="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" placeholder="起始頁（數字，例如 1）">
             <span class="text-gray-500">-</span>
-            <input type="number" id="end-page-input" class="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" placeholder="結束頁">
+            <input type="number" id="end-page-input" class="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" placeholder="結束頁（數字，例如 3）">
             <button id="filter-btn" class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors">篩選</button>
           </div>
           <button id="show-all-btn" class="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors">顯示全部</button>
@@ -87,7 +87,7 @@
     </div>
   </div>
 
-  <div id="preview-container" class="w-full max-w-md mx-auto bg-black rounded-[40px] p-4 shadow-2xl border-4 border-gray-800 transition-all duration-300 relative">
+  <div id="preview-container" class="w-full max-w-md mx-auto bg黑 rounded-[40px] p-4 shadow-2xl border-4 border-gray-800 transition-all duration-300 relative">
     <button id="expand-fullscreen-btn" class="absolute top-4 right-4 z-10 bg-white/80 rounded-full p-2 shadow-lg backdrop-blur-sm hover:bg-gray-200 transition-colors">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
     </button>
@@ -105,7 +105,7 @@
   </div>
 
   <footer class="w-full text-center mt-8">
-    <p class="text-gray-400 text-xs">v4（robust 解析：<code>任意名稱 + (GEMINI) + ：</code>；<code>你：</code>；名稱/ICON 完全分離；首句無空行）</p>
+    <p class="text-gray-400 text-xs">v5（頁數依 GEMINI 標頭中的 page.001 / P.001 決定；名稱/ICON 分離；首句無空行）</p>
   </footer>
 
   <script>
@@ -139,29 +139,32 @@
     let isFullscreen = false;
     let fileContent = '';
 
-    // ===== helper: classify (解析規則，與顯示分離) =====
-    // 規則：
-    // 1) GEMINI：行首第一個冒號前若出現 "(GEMINI)"，視為 GEMINI（白泡）
-    //    亦支援 [GEMINI：]、[(GEMINI)：]、(GEMINI)：、GEMINI： 等舊寫法
-    // 2) 你：與 [你：] 視為使用者（綠泡）
-    const geminiHeadPattern = /^(?:[^：:]*\(GEMINI\)|\[\(GEMINI\)\]|\[GEMINI\]|\(GEMINI\)|GEMINI)[：:]/u; // 必須在第一個冒號前
-    const userHeadPattern   = /^\s*(?:你|\[你)[：:]/u;
-    const pageRegex         = /^\s*page\.\d+/i;
+    const foundPages = new Set();
 
-    const classifySpeaker = (trimmedLine) => {
-      if (userHeadPattern.test(trimmedLine)) return 'user';
-      // 更寬鬆：允許任意名稱 + (GEMINI) 只要在第一個冒號前，例如：🎤NOXTRAY(N)(GEMINI)：
-      if (geminiHeadPattern.test(trimmedLine)) return 'gemini';
-      // 兜底：若第一個冒號之前包含 (GEMINI)
-      if (/^[^：:]*\(GEMINI\)[^\n]*[：:]/u.test(trimmedLine)) return 'gemini';
-      return null;
+    // ===== classify (解析規則，與顯示分離) =====
+    // 白泡：行首第一個冒號前包含 (GEMINI) 或 全形（GEMINI），或是 [GEMINI] / GEMINI
+    const geminiHeadPattern = /^(?:[^：:]*[\(（]GEMINI[\)）]|\[\(GEMINI\)\]|\[GEMINI\]|GEMINI)[：:]/u;
+    // 綠泡：你： 或 [你：]
+    const userHeadPattern   = /^\s*(?:你|\[你)[：:]/u;
+
+    const isGeminiHeader = (trimmedLine) => geminiHeadPattern.test(trimmedLine) || /^[^：:]*\(GEMINI\)[^\n]*[：:]/u.test(trimmedLine);
+    const isUserHeader   = (trimmedLine) => userHeadPattern.test(trimmedLine);
+
+    // 取 header（行首到第一個冒號為止）
+    const takeHeader = (trimmedLine) => {
+      const idx = trimmedLine.search(/[：:]/u);
+      return idx >= 0 ? trimmedLine.slice(0, idx) : trimmedLine;
     };
 
-    // 取內容：移除行首到第一個冒號（全形或半形）之間的內容 + 冒號本身；並吃掉可能殘留的 ]
-    const stripHeader = (trimmedLine) => trimmedLine
-      .replace(/^[^：:]*[：:]\s*/u, '')
-      .replace(/^\]/, '')
-      .trim();
+    // 從 header 擷取 page：支援 page.001 / P.001（大小寫不敏感，允許空白）
+    const extractPageFromHeader = (header) => {
+      const m = header.match(/(?:page|p)\s*\.\s*(\d{1,4})/i);
+      if (!m) return null;
+      return parseInt(m[1], 10);
+    };
+
+    // 去除行首到第一個冒號（全形、半形）以及 ]，保留內容
+    const stripHeader = (trimmedLine) => trimmedLine.replace(/^[^：:]*[：:]\s*/u, '').replace(/^\]/, '').trim();
 
     // ===== upload =====
     fileUpload.addEventListener('change', (event) => {
@@ -181,7 +184,7 @@
 
     generateBtn.addEventListener('click', () => { if (fileContent) parseChat(fileContent); });
 
-    // ===== avatar upload (顯示用) =====
+    // ===== avatar upload（僅視覺） =====
     const handleAvatarUpload = (input, preview, storage) => {
       input.addEventListener('change', (event) => {
         const file = event.target.files[0];
@@ -203,10 +206,11 @@
     filterBtn.addEventListener('click', () => {
       const startPage = parseInt(startPageInput.value);
       const endPage = parseInt(endPageInput.value) || startPage;
-      if (isNaN(startPage) || startPage <= 0 || startPage > totalPages) { alert(`請輸入 1 到 ${totalPages} 之間的有效起始頁碼。`); return; }
-      if (isNaN(endPage) || endPage < startPage || endPage > totalPages) { alert(`請輸入大於等於起始頁 (${startPage}) 且小於等於總頁數 (${totalPages}) 的有效結束頁碼。`); return; }
-      const filteredMessages = allMessages.filter(msg => msg.page >= startPage && msg.page <= endPage);
-      displayMessages(filteredMessages);
+      if (isNaN(startPage)) { alert('請輸入有效的起始頁數（數字，例如 1）。'); return; }
+      if (isNaN(endPage))   { alert('請輸入有效的結束頁數（數字，例如 3）。'); return; }
+      if (endPage < startPage) { alert('結束頁需大於等於起始頁'); return; }
+      const filtered = allMessages.filter(msg => msg.page >= startPage && msg.page <= endPage);
+      displayMessages(filtered);
     });
 
     showAllBtn.addEventListener('click', () => { displayMessages(allMessages); startPageInput.value = ''; endPageInput.value = ''; });
@@ -236,41 +240,57 @@
     // ===== parse =====
     function parseChat(text) {
       allMessages = [];
-      const lines = text.split('\n');
+      foundPages.clear();
+      const lines = text.split(/\r?\n/);
       let currentMessageObj = null;
-      let currentPage = 1;
+      let currentPage = 1; // 預設第一頁，直到遇到 GEMINI 標頭含 page tag
 
-      lines.forEach((line) => {
-        const trimmedLine = line.trim();
+      for (const rawLine of lines) {
+        const trimmedLine = rawLine.trim();
+        if (!trimmedLine) { continue; }
 
-        if (pageRegex.test(trimmedLine)) {
-          if (currentMessageObj) { allMessages.push(currentMessageObj); currentMessageObj = null; }
-          currentPage++;
-          return;
+        // 先判斷是否新訊息開頭
+        if (isGeminiHeader(trimmedLine)) {
+          // 收束上一則
+          if (currentMessageObj) allMessages.push(currentMessageObj);
+
+          // 解析頁碼：只從 header 裡抓
+          const header = takeHeader(trimmedLine);
+          const pageFromHeader = extractPageFromHeader(header);
+          if (pageFromHeader != null) { currentPage = pageFromHeader; foundPages.add(currentPage); }
+
+          const content = stripHeader(trimmedLine);
+          currentMessageObj = { speaker: 'gemini', content, page: currentPage };
+          continue;
         }
-
-        const role = classifySpeaker(trimmedLine);
-        if (role) {
+        if (isUserHeader(trimmedLine)) {
           if (currentMessageObj) allMessages.push(currentMessageObj);
           const content = stripHeader(trimmedLine);
-          currentMessageObj = { speaker: role, content, page: currentPage };
-          return;
+          currentMessageObj = { speaker: 'user', content, page: currentPage };
+          continue;
         }
 
         // 內容延續
         if (currentMessageObj) {
-          const addition = line.trim();
+          const addition = trimmedLine;
           if (addition.length) {
-            // 只在已有內容時加換行，避免首句空白
             currentMessageObj.content += (currentMessageObj.content ? '\n' : '') + addition;
           }
         }
-      });
+      }
 
       if (currentMessageObj) allMessages.push(currentMessageObj);
 
-      totalPages = currentPage;
-      pageInfo.textContent = `總共 ${totalPages} 頁`;
+      // 設定總頁數資訊
+      if (foundPages.size > 0) {
+        const pagesSorted = Array.from(foundPages).sort((a,b)=>a-b);
+        totalPages = pagesSorted[pagesSorted.length - 1];
+        pageInfo.textContent = `偵測頁碼：${pagesSorted.join(', ')}（共 ${pagesSorted.length} 頁）`;
+      } else {
+        totalPages = 1;
+        pageInfo.textContent = '未偵測到 page 標記（全部視為第 1 頁）';
+      }
+
       controls.classList.remove('hidden');
       displayMessages(allMessages);
     }
@@ -279,7 +299,7 @@
     function displayMessages(messagesToDisplay) {
       chatWindow.innerHTML = '';
       if (messagesToDisplay.length === 0) {
-        chatWindow.innerHTML = `<div class="text-center text-white/70 flex flex-col items-center justify-center h-full"><p class=\"font-semibold\">找不到對話內容</p></div>`;
+        chatWindow.innerHTML = `<div class="text-center text-white/70 flex flex-col items-center justify-center h-full"><p class=\"font-semibold\">找不到對話內容（請檢查頁數範圍）</p></div>`;
         return;
       }
       messagesToDisplay.forEach((msg, index) => {
@@ -299,7 +319,6 @@
       const bubble = document.createElement('div');
       bubble.className = 'chat-bubble p-3 rounded-2xl';
 
-      // 移除開頭空白，避免首句空行；換行 -> <br>
       const safe = (message || '').replace(/^\s+/, '').replace(/\n/g, '<br>');
       bubble.innerHTML = safe;
 
@@ -315,7 +334,7 @@
           nameDiv.textContent = speakerName;
           messageContent.appendChild(nameDiv);
         }
-        bubble.classList.add('bg-white', 'text-gray-800'); // 白泡
+        bubble.classList.add('bg-white', 'text-gray-800');
         messageContent.appendChild(bubble);
         messageRow.appendChild(avatar);
         messageRow.appendChild(messageContent);
@@ -329,7 +348,7 @@
           nameDiv.textContent = speakerName;
           messageContent.appendChild(nameDiv);
         }
-        bubble.classList.add('bg-green-400', 'text-black'); // 綠泡
+        bubble.classList.add('bg-green-400', 'text-black');
         messageContent.appendChild(bubble);
         messageRow.appendChild(messageContent);
         messageRow.appendChild(avatar);
