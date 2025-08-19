@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gemini 對話回憶瀏覽器（v4.1 — Enhanced Parser）</title>
+  <title>Gemini 對話回憶瀏覽器（v4.2 — Visible Page Marker）</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,7 +26,7 @@
 
   <div id="main-container" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
     <header class="text-center mb-8">
-      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v4.1）</h1>
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v4.2）</h1>
       <p class="text-gray-500 mt-2">解析與顯示完全分離；GEMINI 行首任意名稱+<code>(GEMINI)</code> 皆判定為白泡；<code>你：</code>（含 <code>[你：]</code>）為綠泡；首句無空行。</p>
     </header>
 
@@ -105,7 +105,7 @@
   </div>
 
   <footer class="w-full text-center mt-8">
-    <p class="text-gray-400 text-xs">v4.1（robust 解析：<code>任意名稱 + (GEMINI) + ：</code>；<code>你：</code>；名稱/ICON 完全分離；保留段落換行）</p>
+    <p class="text-gray-400 text-xs">v4.2（robust 解析；保留段落換行；顯示 page.xxx 標籤）</p>
   </footer>
 
   <script>
@@ -227,7 +227,7 @@
       }
     });
 
-    // ===== parse (MODIFIED) =====
+    // ===== parse (MODIFIED for v4.2) =====
     function parseChat(text) {
       allMessages = [];
       const lines = text.split('\n');
@@ -240,31 +240,24 @@
         const pageMatch = trimmedLine.match(pageRegex);
 
         if (role) {
-          // New speaker detected, finalize the previous message.
           if (currentMessageObj) {
-            // Trim final content to remove leading/trailing blank lines from the object
             currentMessageObj.content = currentMessageObj.content.trim();
             allMessages.push(currentMessageObj);
           }
-          // Start a new message object.
           const content = stripHeader(trimmedLine);
           currentMessageObj = { speaker: role, content: content, page: currentPage };
         } else if (pageMatch) {
-          // Page marker detected, update current page number.
           currentPage = parseInt(pageMatch[1], 10);
-          // If a message is being built, assign the new page number to it.
           if (currentMessageObj) {
             currentMessageObj.page = currentPage;
+            // MODIFICATION: Add the page marker line to the content so it's visible.
+            currentMessageObj.content += '\n' + trimmedLine;
           }
-          // Do NOT add the "page.xxx" line to the content itself.
         } else if (currentMessageObj) {
-          // It's a continuation line, append the raw line to preserve paragraphs.
           currentMessageObj.content += '\n' + line;
         }
-        // Lines before the first speaker are ignored.
       });
 
-      // Add the very last message in the file.
       if (currentMessageObj) {
         currentMessageObj.content = currentMessageObj.content.trim();
         allMessages.push(currentMessageObj);
@@ -300,7 +293,6 @@
       const bubble = document.createElement('div');
       bubble.className = 'chat-bubble p-3 rounded-2xl';
 
-      // Convert newlines to <br> for HTML display.
       const safe = (message || '').replace(/\n/g, '<br>');
       bubble.innerHTML = safe;
 
