@@ -2,8 +2,8 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gemini 對話回憶瀏覽器（修正版 v3）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gemini 對話回憶瀏覽器（v4 — Robust GEMINI Parse）</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,8 +26,8 @@
 
   <div id="main-container" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
     <header class="text-center mb-8">
-      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（修正版 v3）</h1>
-      <p class="text-gray-500 mt-2">首句不留空行；<span class="font-medium">解析邏輯與顯示名稱/ICON完全分離</span>；顏色規則：GEMINI→白泡、你→綠泡。</p>
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v4）</h1>
+      <p class="text-gray-500 mt-2">解析與顯示完全分離；GEMINI 行首任意名稱+<code>(GEMINI)</code> 皆判定為白泡；<code>你：</code>（含 <code>[你：]</code>）為綠泡；首句無空行。</p>
     </header>
 
     <div class="space-y-6 mb-8">
@@ -39,24 +39,24 @@
       </div>
 
       <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-        <h2 class="text-lg font-semibold text-gray-700 mb-3">2. 視覺顯示（僅影響外觀，不影響解析/顏色）</h2>
-        <p class="text-xs text-gray-500 mb-3">名稱與ICON僅作顯示用途，訊息顏色與分類完全由解析規則決定。</p>
+        <h2 class="text-lg font-semibold text-gray-700 mb-3">2. 視覺顯示（僅外觀，可自訂 ICON 與名稱）</h2>
+        <p class="text-xs text-gray-500 mb-3">名稱 / ICON 只影響顯示，不影響解析與氣泡顏色。</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div class="flex items-center gap-4">
             <img id="gemini-avatar-preview" src="https://placehold.co/128x128/EFEFEF/777?text=GEMINI" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" alt="Gemini Avatar">
             <div class="w-full">
-              <label for="gemini-name-input" class="text-sm font-medium text-gray-600">角色 1 顯示名稱（可留白｜不影響解析）</label>
+              <label for="gemini-name-input" class="text-sm font-medium text-gray-600">白泡顯示名稱（可留白）</label>
               <input type="text" id="gemini-name-input" class="w-full p-2 border border-gray-300 rounded-md mt-1" placeholder="">
-              <label for="gemini-avatar-upload" class="mt-2 text-sm cursor-pointer text-blue-600 hover:underline">更換ICON</label>
+              <label for="gemini-avatar-upload" class="mt-2 text-sm cursor-pointer text-blue-600 hover:underline">更換 ICON</label>
               <input id="gemini-avatar-upload" type="file" class="hidden" accept="image/*">
             </div>
           </div>
           <div class="flex items-center gap-4">
             <img id="user-avatar-preview" src="https://placehold.co/128x128/8DE041/FFF?text=YOU" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" alt="User Avatar">
             <div class="w-full">
-              <label for="user-name-input" class="text-sm font-medium text-gray-600">角色 2 顯示名稱（可留白｜不影響解析）</label>
+              <label for="user-name-input" class="text-sm font-medium text-gray-600">綠泡顯示名稱（可留白）</label>
               <input type="text" id="user-name-input" class="w-full p-2 border border-gray-300 rounded-md mt-1" placeholder="">
-              <label for="user-avatar-upload" class="mt-2 text-sm cursor-pointer text-blue-600 hover:underline">更換ICON</label>
+              <label for="user-avatar-upload" class="mt-2 text-sm cursor-pointer text-blue-600 hover:underline">更換 ICON</label>
               <input id="user-avatar-upload" type="file" class="hidden" accept="image/*">
             </div>
           </div>
@@ -105,11 +105,11 @@
   </div>
 
   <footer class="w-full text-center mt-8">
-    <p class="text-gray-400 text-xs">v6.3 修正版（顯示與解析完全分離 + 顏色規則鎖定）</p>
+    <p class="text-gray-400 text-xs">v4（robust 解析：<code>任意名稱 + (GEMINI) + ：</code>；<code>你：</code>；名稱/ICON 完全分離；首句無空行）</p>
   </footer>
 
   <script>
-    // ===== 狀態 =====
+    // ===== state =====
     const fileUpload = document.getElementById('file-upload');
     const fileNameDisplay = document.getElementById('file-name');
     const geminiAvatarUpload = document.getElementById('gemini-avatar-upload');
@@ -139,39 +139,31 @@
     let isFullscreen = false;
     let fileContent = '';
 
-    // ===== 分離：解析用規則（不看顯示名稱） =====
-    // 僅依賴 line 的標記來分類發話者
+    // ===== helper: classify (解析規則，與顯示分離) =====
+    // 規則：
+    // 1) GEMINI：行首第一個冒號前若出現 "(GEMINI)"，視為 GEMINI（白泡）
+    //    亦支援 [GEMINI：]、[(GEMINI)：]、(GEMINI)：、GEMINI： 等舊寫法
+    // 2) 你：與 [你：] 視為使用者（綠泡）
+    const geminiHeadPattern = /^(?:[^：:]*\(GEMINI\)|\[\(GEMINI\)\]|\[GEMINI\]|\(GEMINI\)|GEMINI)[：:]/u; // 必須在第一個冒號前
+    const userHeadPattern   = /^\s*(?:你|\[你)[：:]/u;
+    const pageRegex         = /^\s*page\.\d+/i;
+
     const classifySpeaker = (trimmedLine) => {
-      // 三種 GEMINI 的形式：[(GEMINI)：]、[GEMINI：]、(GEMINI)： → 白色泡泡
-      // 你：/ [你：] → 綠色泡泡
-      const geminiStrict = /^(\[\(GEMINI\)\]|\[GEMINI\]|\(GEMINI\))[：:]/u;
-      const userStrict   = /^(\[?你)[：:]/u; // 支援「你：」與「[你：」
-      if (geminiStrict.test(trimmedLine)) return 'gemini';
-      if (userStrict.test(trimmedLine)) return 'user';
-      return null; // 其他行視為內容延續
+      if (userHeadPattern.test(trimmedLine)) return 'user';
+      // 更寬鬆：允許任意名稱 + (GEMINI) 只要在第一個冒號前，例如：🎤NOXTRAY(N)(GEMINI)：
+      if (geminiHeadPattern.test(trimmedLine)) return 'gemini';
+      // 兜底：若第一個冒號之前包含 (GEMINI)
+      if (/^[^：:]*\(GEMINI\)[^\n]*[：:]/u.test(trimmedLine)) return 'gemini';
+      return null;
     };
 
-    // 去除發話者標記字串，保留內容
-    const stripMarker = (trimmedLine, speaker) => {
-      if (speaker === 'gemini') {
-        // 依序處理三種形式
-        return trimmedLine
-          .replace(/^\[\(GEMINI\)\][：:]/u, '')
-          .replace(/^\[GEMINI\][：:]/u, '')
-          .replace(/^\(GEMINI\)[：:]/u, '')
-          .replace(/^\]?/, '') // 若前綴有 [ 開頭，吃掉殘留的 ]
-          .trim();
-      }
-      if (speaker === 'user') {
-        return trimmedLine
-          .replace(/^\[?你[：:]/u, '')
-          .replace(/^\]?/, '')
-          .trim();
-      }
-      return trimmedLine;
-    };
+    // 取內容：移除行首到第一個冒號（全形或半形）之間的內容 + 冒號本身；並吃掉可能殘留的 ]
+    const stripHeader = (trimmedLine) => trimmedLine
+      .replace(/^[^：:]*[：:]\s*/u, '')
+      .replace(/^\]/, '')
+      .trim();
 
-    // ===== 檔案上傳 =====
+    // ===== upload =====
     fileUpload.addEventListener('change', (event) => {
       const uploadedFile = event.target.files[0];
       if (uploadedFile) {
@@ -189,7 +181,7 @@
 
     generateBtn.addEventListener('click', () => { if (fileContent) parseChat(fileContent); });
 
-    // ===== ICON 上傳（僅視覺） =====
+    // ===== avatar upload (顯示用) =====
     const handleAvatarUpload = (input, preview, storage) => {
       input.addEventListener('change', (event) => {
         const file = event.target.files[0];
@@ -213,8 +205,8 @@
       const endPage = parseInt(endPageInput.value) || startPage;
       if (isNaN(startPage) || startPage <= 0 || startPage > totalPages) { alert(`請輸入 1 到 ${totalPages} 之間的有效起始頁碼。`); return; }
       if (isNaN(endPage) || endPage < startPage || endPage > totalPages) { alert(`請輸入大於等於起始頁 (${startPage}) 且小於等於總頁數 (${totalPages}) 的有效結束頁碼。`); return; }
-      const filtered = allMessages.filter(msg => msg.page >= startPage && msg.page <= endPage);
-      displayMessages(filtered);
+      const filteredMessages = allMessages.filter(msg => msg.page >= startPage && msg.page <= endPage);
+      displayMessages(filteredMessages);
     });
 
     showAllBtn.addEventListener('click', () => { displayMessages(allMessages); startPageInput.value = ''; endPageInput.value = ''; });
@@ -241,32 +233,36 @@
       }
     });
 
-    // ===== 解析（與顯示完全分離） =====
+    // ===== parse =====
     function parseChat(text) {
       allMessages = [];
       const lines = text.split('\n');
       let currentMessageObj = null;
       let currentPage = 1;
-      const pageRegex = /^page\.\d+/i;
 
       lines.forEach((line) => {
         const trimmedLine = line.trim();
-        const role = classifySpeaker(trimmedLine);
 
-        if (role) {
-          if (currentMessageObj) allMessages.push(currentMessageObj);
-          const content = stripMarker(trimmedLine, role);
-          currentMessageObj = { speaker: role, content, page: currentPage };
-        } else if (pageRegex.test(trimmedLine)) {
+        if (pageRegex.test(trimmedLine)) {
           if (currentMessageObj) { allMessages.push(currentMessageObj); currentMessageObj = null; }
           currentPage++;
-        } else {
-          if (currentMessageObj) {
-            const addition = line.trim();
-            if (addition.length) {
-              // 只在已有內容時加換行，避免開頭空白
-              currentMessageObj.content += (currentMessageObj.content ? '\n' : '') + addition;
-            }
+          return;
+        }
+
+        const role = classifySpeaker(trimmedLine);
+        if (role) {
+          if (currentMessageObj) allMessages.push(currentMessageObj);
+          const content = stripHeader(trimmedLine);
+          currentMessageObj = { speaker: role, content, page: currentPage };
+          return;
+        }
+
+        // 內容延續
+        if (currentMessageObj) {
+          const addition = line.trim();
+          if (addition.length) {
+            // 只在已有內容時加換行，避免首句空白
+            currentMessageObj.content += (currentMessageObj.content ? '\n' : '') + addition;
           }
         }
       });
@@ -279,11 +275,11 @@
       displayMessages(allMessages);
     }
 
-    // ===== 渲染（顏色/名稱/ICON 只看 speaker，不參與解析） =====
+    // ===== render =====
     function displayMessages(messagesToDisplay) {
       chatWindow.innerHTML = '';
       if (messagesToDisplay.length === 0) {
-        chatWindow.innerHTML = `<div class="text-center text-white/70 flex flex-col items-center justify-center h-full"><p class="font-semibold">找不到對話內容</p></div>`;
+        chatWindow.innerHTML = `<div class="text-center text-white/70 flex flex-col items-center justify-center h-full"><p class=\"font-semibold\">找不到對話內容</p></div>`;
         return;
       }
       messagesToDisplay.forEach((msg, index) => {
@@ -319,7 +315,7 @@
           nameDiv.textContent = speakerName;
           messageContent.appendChild(nameDiv);
         }
-        bubble.classList.add('bg-white', 'text-gray-800'); // 白色泡泡
+        bubble.classList.add('bg-white', 'text-gray-800'); // 白泡
         messageContent.appendChild(bubble);
         messageRow.appendChild(avatar);
         messageRow.appendChild(messageContent);
@@ -333,7 +329,7 @@
           nameDiv.textContent = speakerName;
           messageContent.appendChild(nameDiv);
         }
-        bubble.classList.add('bg-green-400', 'text-black'); // 綠色泡泡
+        bubble.classList.add('bg-green-400', 'text-black'); // 綠泡
         messageContent.appendChild(bubble);
         messageRow.appendChild(messageContent);
         messageRow.appendChild(avatar);
@@ -344,14 +340,12 @@
       chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 
-    // ===== 截圖頁（沿用渲染只看 speaker 的邏輯） =====
+    // ===== screenshot page =====
     function generateScreenshotPage() {
       const startPage = parseInt(startPageInput.value) || 1;
       const endPage = parseInt(endPageInput.value) || (startPageInput.value ? startPage : totalPages);
       const messagesToDisplay = allMessages.filter(msg => msg.page >= startPage && msg.page <= endPage);
-
       if (messagesToDisplay.length === 0) { alert('目前沒有可供截圖的對話內容。'); return; }
-
       const screenshotData = {
         messages: messagesToDisplay,
         geminiAvatar: geminiAvatarSrc,
@@ -360,7 +354,6 @@
         userName: userNameInput.value,
       };
       localStorage.setItem('screenshotData', JSON.stringify(screenshotData));
-
       const newPageContent = `
         <!DOCTYPE html>
         <html lang="zh-Hant">
@@ -425,7 +418,6 @@
             }
           <\/script>
         </body></html>`;
-
       const newWindow = window.open();
       newWindow.document.write(newPageContent);
       newWindow.document.close();
