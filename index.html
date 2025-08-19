@@ -26,7 +26,7 @@
 
   <div id="main-container" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
     <header class="text-center mb-6">
-      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v8）</h1>
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v9）</h1>
       <p class="text-gray-600 mt-2">強化上傳/解碼穩定性；頁碼支援：GEMINI 標頭/內容開頭與獨立一行 <code>page.xxx</code>/<code>P.xxx</code>；白泡=GEMINI、綠泡=你；顯示名稱/ICON 與解析分離；首句不空行。</p>
       <div id="error-box" class="hidden mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-md p-3"></div>
     </header>
@@ -228,13 +228,45 @@
     function clearError(){ errorBox.textContent = ''; errorBox.classList.add('hidden'); }
 
     async function readFileSmart(file){
-      // 以 ArrayBuffer 讀取，做簡易編碼偵測與多方案解碼
+      // 先走最相容路線：FileReader.readAsText（讓瀏覽器自己判斷）
+      try {
+        const text = await new Promise((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(fr.result || "");
+          fr.onerror = () => reject(fr.error || new Error('readAsText 讀取失敗'));
+          // 不指定編碼，交給瀏覽器；這是你「一開始能成功」的原因
+          fr.readAsText(file);
+        });
+        if (text && text.trim()) return text;
+      } catch(_) { /* fallthrough */ }
+
+      // 若 readAsText 回傳空或失敗，再用 ArrayBuffer + TextDecoder 做多編碼嘗試
       const buf = await file.arrayBuffer();
       const u8 = new Uint8Array(buf);
+
       // BOM 判斷
       if (u8.length >= 3 && u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF) {
         return new TextDecoder('utf-8').decode(u8.subarray(3));
       }
+      if (u8.length >= 2 && u8[0] === 0xFF && u8[1] === 0xFE) {
+        return new TextDecoder('utf-16le').decode(u8.subarray(2));
+      }
+      if (u8.length >= 2 && u8[0] === 0xFE && u8[1] === 0xFF) {
+        return new TextDecoder('utf-16be').decode(u8.subarray(2));
+      }
+
+      const tryList = ['utf-8', 'utf-16le', 'utf-16be']; // 移除部分瀏覽器不支援的 big5/gbk，避免構造器報錯
+      for (const enc of tryList) {
+        try {
+          const dec = new TextDecoder(enc, { fatal: false });
+          const text = dec.decode(u8);
+          if (text && text.trim()) return text;
+        } catch (e) { /* ignore */ }
+      }
+
+      // 最末退路：嘗試預設解碼或直接回空字串讓上層顯示貼上備援
+      try { return new TextDecoder().decode(u8); } catch(e) { return ''; }
+    }
       if (u8.length >= 2 && u8[0] === 0xFF && u8[1] === 0xFE) {
         return new TextDecoder('utf-16le').decode(u8.subarray(2));
       }
