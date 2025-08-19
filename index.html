@@ -92,7 +92,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             開啟沉浸對話網頁
           </button>
-          <p id="page-info" class="text-sm text-gray-600 w-full text-center sm:w-auto mt-2 sm:mt-0"></p>
+          <p id="page-info" class="hidden $1"></p>
         </div>
       </div>
     </div>
@@ -335,7 +335,7 @@
         // A) 獨立 page 行
         const mLine = trimmedLine.match(pageLineOnlyRegex);
         if (mLine) {
-          if (currentMessageObj) { allMessages.push(currentMessageObj); currentMessageObj = null; }
+          // 只切換頁碼，不結束當前訊息，避免截斷
           currentPage = parseInt(mLine[1], 10);
           foundPages.add(currentPage);
           continue;
@@ -365,14 +365,17 @@
           continue;
         }
 
-        // D) 內容延續
+        // D) 內容延續或自由文字起新訊息（預設歸 GEMINI）
         if (currentMessageObj) {
           const addition = trimmedLine;
           if (addition.length) {
-            currentMessageObj.content += (currentMessageObj.content ? '\n' : '') + addition;
+            currentMessageObj.content += (currentMessageObj.content ? '
+' : '') + addition;
           }
+        } else {
+          // 若尚未有訊息而來的是自由文字，建立一則 GEMINI 訊息以避免內容消失
+          currentMessageObj = { speaker: 'gemini', content: trimmedLine, page: currentPage };
         }
-      }
 
       if (currentMessageObj) allMessages.push(currentMessageObj);
 
@@ -380,10 +383,10 @@
       if (foundPages.size > 0) {
         const pagesSorted = Array.from(foundPages).sort((a,b)=>a-b);
         totalPages = pagesSorted[pagesSorted.length - 1];
-        pageInfo.textContent = `偵測頁碼：${pagesSorted.join(', ')}（共 ${pagesSorted.length} 個標記）`;
+        pageInfo.textContent = "";
       } else {
         totalPages = 1;
-        pageInfo.textContent = '未偵測到 page 標記（全部視為第 1 頁）';
+        pageInfo.textContent = "";
       }
 
       controls.classList.remove('hidden');
