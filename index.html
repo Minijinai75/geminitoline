@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gemini 對話回憶瀏覽器（v4.2 — Visible Page Marker）</title>
+  <title>Gemini 對話回憶瀏覽器（v4.2 — for MINIJIN）</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,7 +11,8 @@
   <style>
     html { scroll-behavior: smooth; }
     body { font-family: 'Inter', 'Noto Sans TC', sans-serif; }
-    #chat-window, .screenshot-body { background-color: #7996b8; }
+    /* --- MODIFIED: Changed chat window color to a soft purple --- */
+    #chat-window, .screenshot-body { background-color: #BCA8D9; } 
     .chat-bubble { max-width: 75%; word-wrap: break-word; white-space: pre-wrap; }
     .message-enter { opacity: 0; transform: translateY(20px); transition: opacity 0.3s ease, transform 0.3s ease; }
     .message-enter-active { opacity: 1; transform: translateY(0); }
@@ -22,66 +23,73 @@
     .fullscreen-chat #chat-window { height: 100%; border-radius: 0; }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4">
+<body class="bg-purple-50 min-h-screen p-4">
 
   <div id="main-container" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
     <header class="text-center mb-8">
-      <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Gemini 對話回憶瀏覽器（v4.2）</h1>
-      <p class="text-gray-500 mt-2">解析與顯示完全分離；GEMINI 行首任意名稱+<code>(GEMINI)</code> 皆判定為白泡；<code>你：</code>（含 <code>[你：]</code>）為綠泡；首句無空行。</p>
+      <h1 class="text-3xl md:text-4xl font-bold text-purple-800">Gemini 對話回憶瀏覽器</h1>
+      <!-- --- MODIFIED: Changed header description --- -->
+      <p class="text-purple-600 mt-2">由 @minijinai75 和她的小精靈們一起優化與建構 💜｜檔案全程在您的裝置離線處理，安全無虞。須配合MINIJIN的GEMINI單窗下載程式才能使用😊</p>
     </header>
 
     <div class="space-y-6 mb-8">
-      <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-        <h2 class="text-lg font-semibold text-gray-700 mb-3">1. 上傳對話紀錄</h2>
-        <label for="file-upload" class="w-full cursor-pointer bg-blue-500 text-white text-center py-2 px-4 rounded-md hover:bg-blue-600 transition-colors block">選擇 .txt 檔案</label>
+      <!-- --- MODIFIED: Changed section background and border color --- -->
+      <div class="bg-purple-100 p-4 rounded-lg border border-purple-200">
+        <h2 class="text-lg font-semibold text-purple-700 mb-3">1. 上傳對話紀錄</h2>
+        <!-- --- MODIFIED: Changed button color --- -->
+        <label for="file-upload" class="w-full cursor-pointer bg-purple-500 text-white text-center py-2 px-4 rounded-md hover:bg-purple-600 transition-colors block">選擇 .txt 檔案</label>
         <input id="file-upload" type="file" class="hidden" accept="text/plain,.txt">
-        <p id="file-name" class="text-sm text-gray-500 mt-2 truncate">尚未選擇檔案</p>
+        <p id="file-name" class="text-sm text-purple-500 mt-2 truncate">尚未選擇檔案</p>
       </div>
 
-      <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-        <h2 class="text-lg font-semibold text-gray-700 mb-3">2. 視覺顯示（僅外觀，可自訂 ICON 與名稱）</h2>
-        <p class="text-xs text-gray-500 mb-3">名稱 / ICON 只影響顯示，不影響解析與氣泡顏色。</p>
+      <div class="bg-purple-100 p-4 rounded-lg border border-purple-200">
+        <!-- --- MODIFIED: Changed section title and removed description --- -->
+        <h2 class="text-lg font-semibold text-purple-700 mb-3">2.設定對話者ICON及名稱</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div class="flex items-center gap-4">
             <img id="gemini-avatar-preview" src="https://placehold.co/128x128/EFEFEF/777?text=GEMINI" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" alt="Gemini Avatar">
             <div class="w-full">
-              <label for="gemini-name-input" class="text-sm font-medium text-gray-600">白泡顯示名稱（可留白）</label>
+              <!-- --- MODIFIED: Changed label text --- -->
+              <label for="gemini-name-input" class="text-sm font-medium text-gray-600">角色顯示名稱(可留白）</label>
               <input type="text" id="gemini-name-input" class="w-full p-2 border border-gray-300 rounded-md mt-1" placeholder="">
-              <label for="gemini-avatar-upload" class="mt-2 text-sm cursor-pointer text-blue-600 hover:underline">更換 ICON</label>
+              <label for="gemini-avatar-upload" class="mt-2 text-sm cursor-pointer text-purple-600 hover:underline">更換 ICON</label>
               <input id="gemini-avatar-upload" type="file" class="hidden" accept="image/*">
             </div>
           </div>
           <div class="flex items-center gap-4">
             <img id="user-avatar-preview" src="https://placehold.co/128x128/8DE041/FFF?text=YOU" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" alt="User Avatar">
             <div class="w-full">
-              <label for="user-name-input" class="text-sm font-medium text-gray-600">綠泡顯示名稱（可留白）</label>
+              <!-- --- MODIFIED: Changed label text --- -->
+              <label for="user-name-input" class="text-sm font-medium text-gray-600">PC顯示名稱(可留白）</label>
               <input type="text" id="user-name-input" class="w-full p-2 border border-gray-300 rounded-md mt-1" placeholder="">
-              <label for="user-avatar-upload" class="mt-2 text-sm cursor-pointer text-blue-600 hover:underline">更換 ICON</label>
+              <label for="user-avatar-upload" class="mt-2 text-sm cursor-pointer text-purple-600 hover:underline">更換 ICON</label>
               <input id="user-avatar-upload" type="file" class="hidden" accept="image/*">
             </div>
           </div>
         </div>
       </div>
 
-      <button id="generate-btn" class="w-full bg-green-500 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-600 transition-transform transform hover:scale-105 shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed disabled:scale-100" disabled>
+      <!-- --- MODIFIED: Changed generate button color to pink --- -->
+      <button id="generate-btn" class="w-full bg-pink-500 text-white font-bold py-3 px-8 rounded-lg hover:bg-pink-600 transition-transform transform hover:scale-105 shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed disabled:scale-100" disabled>
         生成 / 更新預覽
       </button>
 
-      <div id="controls" class="bg-gray-100 p-4 rounded-lg border border-gray-200 hidden">
+      <div id="controls" class="bg-purple-100 p-4 rounded-lg border border-purple-200 hidden">
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4 flex-wrap">
           <div class="flex items-center gap-2 flex-wrap justify-center">
-            <label for="start-page-input" class="text-gray-700 font-medium">頁數範圍:</label>
-            <input type="number" id="start-page-input" class="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" placeholder="起始頁">
-            <span class="text-gray-500">-</span>
-            <input type="number" id="end-page-input" class="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500" placeholder="結束頁">
-            <button id="filter-btn" class="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors">篩選</button>
+            <label for="start-page-input" class="text-purple-700 font-medium">頁數範圍:</label>
+            <input type="number" id="start-page-input" class="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500" placeholder="起始頁">
+            <span class="text-purple-500">-</span>
+            <input type="number" id="end-page-input" class="w-20 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500" placeholder="結束頁">
+            <!-- --- MODIFIED: Changed button colors --- -->
+            <button id="filter-btn" class="bg-purple-500 text-white py-2 px-4 rounded-md hover:bg-purple-600 transition-colors">篩選</button>
           </div>
-          <button id="show-all-btn" class="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors">顯示全部</button>
-          <button id="screenshot-btn" class="bg-teal-500 text-white py-2 px-4 rounded-md hover:bg-teal-600 transition-colors flex items-center gap-2">
+          <button id="show-all-btn" class="bg-purple-400 text-white py-2 px-4 rounded-md hover:bg-purple-500 transition-colors">顯示全部</button>
+          <button id="screenshot-btn" class="bg-indigo-500 text-white py-2 px-4 rounded-md hover:bg-indigo-600 transition-colors flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             開啟沉浸對話網頁
           </button>
-          <p id="page-info" class="text-sm text-gray-600 w-full text-center sm:w-auto mt-2 sm:mt-0"></p>
+          <p id="page-info" class="text-sm text-purple-600 w-full text-center sm:w-auto mt-2 sm:mt-0"></p>
         </div>
       </div>
     </div>
@@ -227,7 +235,7 @@
       }
     });
 
-    // ===== parse (MODIFIED for v4.2) =====
+    // ===== parse (v4.2) =====
     function parseChat(text) {
       allMessages = [];
       const lines = text.split('\n');
@@ -250,7 +258,6 @@
           currentPage = parseInt(pageMatch[1], 10);
           if (currentMessageObj) {
             currentMessageObj.page = currentPage;
-            // MODIFICATION: Add the page marker line to the content so it's visible.
             currentMessageObj.content += '\n' + trimmedLine;
           }
         } else if (currentMessageObj) {
@@ -308,7 +315,7 @@
           nameDiv.textContent = speakerName;
           messageContent.appendChild(nameDiv);
         }
-        bubble.classList.add('bg-white', 'text-gray-800');
+        bubble.classList.add('bg-white', 'text-gray-800'); // 白泡
         messageContent.appendChild(bubble);
         messageRow.appendChild(avatar);
         messageRow.appendChild(messageContent);
@@ -322,7 +329,8 @@
           nameDiv.textContent = speakerName;
           messageContent.appendChild(nameDiv);
         }
-        bubble.classList.add('bg-green-400', 'text-black');
+        // --- MODIFIED: Changed "green bubble" to a pink bubble ---
+        bubble.classList.add('bg-pink-300', 'text-gray-800'); // 粉紅泡
         messageContent.appendChild(bubble);
         messageRow.appendChild(messageContent);
         messageRow.appendChild(avatar);
@@ -356,7 +364,8 @@
           <script src="https://cdn.tailwindcss.com"><\/script>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
           <style>
-            body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #7996b8; }
+            /* --- MODIFIED: Changed screenshot page background color --- */
+            body { font-family: 'Inter', 'Noto Sans TC', sans-serif; background-color: #BCA8D9; }
             .chat-bubble { max-width: 75%; word-wrap: break-word; white-space: pre-wrap; }
           </style>
         </head>
@@ -401,7 +410,8 @@
                     nameDiv.textContent = data.userName;
                     messageContent.appendChild(nameDiv);
                   }
-                  bubble.classList.add('bg-green-400', 'text-black');
+                  /* --- MODIFIED: Changed screenshot bubble color --- */
+                  bubble.classList.add('bg-pink-300', 'text-gray-800');
                   messageContent.appendChild(bubble);
                   messageRow.appendChild(messageContent);
                   messageRow.appendChild(avatar);
